@@ -511,7 +511,7 @@ class FuseOperations(object):
     def mknod(self, path, mode, dev):
         raise FuseError(EACCES)
     
-    def open(self, path, mode):
+    def open(self, path, flags):
         """Returns a numerical file handle."""
         raise FuseError(EACCES)
     

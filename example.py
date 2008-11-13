@@ -50,7 +50,7 @@ class MyOperations(FuseOperations):
                 st_size=0, st_ctime=time(), st_mtime=time(), st_atime=time())
         return 0
     
-    def open(self, path, mode):
+    def open(self, path, flags):
         self.fd += 1
         return self.fd
     
