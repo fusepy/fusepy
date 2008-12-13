@@ -341,7 +341,8 @@ class FUSE(object):
     
     @safe
     def setxattr(self, path, name, value, size, options, *args):
-        return self.operations('setxattr', path, name, value, options, *args)
+        s = string_at(value, size)
+        return self.operations('setxattr', path, name, s, options, *args)
     
     @safe
     def getxattr(self, path, name, value, size, *args):
