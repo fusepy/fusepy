@@ -145,7 +145,7 @@ else:
     setxattr_t = CFUNCTYPE(c_int, c_char_p, c_char_p, POINTER(c_byte), c_size_t, c_int)
     getxattr_t = CFUNCTYPE(c_int, c_char_p, c_char_p, POINTER(c_byte), c_size_t)
 listxattr_t = CFUNCTYPE(c_int, c_char_p, POINTER(c_byte), c_size_t)
-removexattr_t = CFUNCTYPE(c_int, c_char_p)
+removexattr_t = CFUNCTYPE(c_int, c_char_p, c_char_p)
 opendir_t = CFUNCTYPE(c_int, c_char_p, POINTER(fuse_file_info))
 readdir_t = CFUNCTYPE(c_int, c_char_p, c_voidp, fuse_fill_dir_t, c_off_t, POINTER(fuse_file_info))
 releasedir_t = CFUNCTYPE(c_int, c_char_p, POINTER(fuse_file_info))
@@ -364,7 +364,7 @@ class FUSE(object):
     
     @safe
     def removexattr(self, path, name):
-        raise FuseError(EFAULT)
+        return self.operations('removexattr', path, name)
     
     @safe
     def opendir(self, path, fi):
