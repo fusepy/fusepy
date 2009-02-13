@@ -41,6 +41,7 @@ class c_utimbuf(Structure):
 _system = system()
 
 if _system == 'Darwin':
+    ENOTSUP = 45
     c_dev_t = c_int32
     c_mode_t = c_uint16
     c_nlink_t = c_uint16
@@ -62,6 +63,7 @@ if _system == 'Darwin':
                 ('st_blksize', c_blksize_t),
         ]
 elif _system == 'Linux':
+    ENOTSUP = 95
     c_dev_t = c_ulonglong
     c_mode_t = c_uint
     c_nlink_t = c_ulong
@@ -458,7 +460,7 @@ class FUSE(object):
         return self.operations('bmap', path, blocksize, idx)
         
 
-from errno import EACCES, ENODATA, ENOENT
+from errno import EACCES, ENOENT
 from stat import S_IFDIR
 
 import logging
@@ -512,7 +514,7 @@ class FuseOperations(object):
         return dict(st_mode=(S_IFDIR | 0755), st_nlink=2)
     
     def getxattr(self, path, name, position=0):
-        raise FuseError(ENODATA)
+        raise FuseError(ENOTSUP)
     
     def init(self):
         """Called on filesystem initialization."""
@@ -555,7 +557,7 @@ class FuseOperations(object):
         return 0
     
     def removexattr(self, path, name):
-        raise FuseError(ENODATA)
+        raise FuseError(ENOTSUP)
     
     def rename(self, old, new):
         raise FuseError(EACCES)
@@ -564,7 +566,7 @@ class FuseOperations(object):
         raise FuseError(EACCES)
     
     def setxattr(self, path, name, value, options, position=0):
-        raise FuseError(ENODATA)
+        raise FuseError(ENOTSUP)
     
     def statvfs(self, path):
         return {}
