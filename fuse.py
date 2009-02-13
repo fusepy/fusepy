@@ -15,17 +15,20 @@
 from ctypes import *
 from ctypes.util import find_library
 from errno import EFAULT
-from platform import system
+from platform import machine, system
 from traceback import print_exc
 
 
-c_ino_t = c_uint32
-c_uid_t = c_uint32
-c_gid_t = c_uint32
-c_off_t = c_int64
 c_blkcnt_t = c_int64
-c_blksize_t = c_int32
+c_blksize_t = c_long
+c_fsblkcnt_t = c_ulong
+c_fsfilcnt_t = c_ulong
+c_gid_t = c_uint
+c_ino_t = c_ulong
+c_off_t = c_int64
 c_time_t = c_long
+c_uid_t = c_uint
+
 
 class c_timespec(Structure):
     _fields_ = [('tv_sec', c_time_t), ('tv_nsec', c_long)]
@@ -41,8 +44,6 @@ if _system == 'Darwin':
     c_dev_t = c_int32
     c_mode_t = c_uint16
     c_nlink_t = c_uint16
-    c_fsblkcnt_t = c_uint
-    c_fsfilcnt_t = c_uint
     
     class c_stat(Structure):
         _fields_ = [
@@ -63,28 +64,45 @@ if _system == 'Darwin':
 elif _system == 'Linux':
     c_dev_t = c_ulonglong
     c_mode_t = c_uint
-    c_nlink_t = c_uint
-    c_fsblkcnt_t = c_uint
-    c_fsfilcnt_t = c_uint
-        
-    class c_stat(Structure):
-        _fields_ = [
-                ('st_dev', c_dev_t),
-                ('__pad1', c_short),
-                ('st_ino', c_ino_t),
-                ('st_mode', c_mode_t),
-                ('st_nlink', c_nlink_t),
-                ('st_uid', c_uid_t),
-                ('st_gid', c_gid_t),
-                ('st_rdev', c_dev_t),
-                ('__pad2', c_short),
-                ('st_size', c_off_t),
-                ('st_blksize', c_blksize_t),
-                ('st_blocks', c_blkcnt_t),
-                ('st_atimespec', c_timespec),
-                ('st_mtimespec', c_timespec),
-                ('st_ctimespec', c_timespec),
-        ]
+    c_nlink_t = c_ulong
+    
+    if machine() == 'x86_64':
+        class c_stat(Structure):
+            _fields_ = [
+                    ('st_dev', c_dev_t),
+                    ('st_ino', c_ino_t),
+                    ('st_nlink', c_nlink_t),
+                    ('st_mode', c_mode_t),
+                    ('st_uid', c_uid_t),
+                    ('st_gid', c_gid_t),
+                    ('__pad0', c_int),
+                    ('st_rdev', c_dev_t),
+                    ('st_size', c_off_t),
+                    ('st_blksize', c_blksize_t),
+                    ('st_blocks', c_blkcnt_t),
+                    ('st_atimespec', c_timespec),
+                    ('st_mtimespec', c_timespec),
+                    ('st_ctimespec', c_timespec),
+            ]
+    else:
+        class c_stat(Structure):
+            _fields_ = [
+                    ('st_dev', c_dev_t),
+                    ('__pad1', c_short),
+                    ('st_ino', c_ino_t),
+                    ('st_mode', c_mode_t),
+                    ('st_nlink', c_nlink_t),
+                    ('st_uid', c_uid_t),
+                    ('st_gid', c_gid_t),
+                    ('st_rdev', c_dev_t),
+                    ('__pad2', c_short),
+                    ('st_size', c_off_t),
+                    ('st_blksize', c_blksize_t),
+                    ('st_blocks', c_blkcnt_t),
+                    ('st_atimespec', c_timespec),
+                    ('st_mtimespec', c_timespec),
+                    ('st_ctimespec', c_timespec),
+            ]
 else:
     raise NotImplementedError('%s is not supported.' % _system)
 
@@ -114,8 +132,8 @@ class fuse_file_info(Structure):
             ('keep_cache', c_uint, 1),
             ('flush', c_uint, 1),
             ('padding', c_uint, 29),
-            ('fh', c_ulonglong),
-            ('lock_owner', c_ulonglong)
+            ('fh', c_uint64),
+            ('lock_owner', c_uint64)
     ]
 
 fuse_fill_dir_t = CFUNCTYPE(c_int, c_voidp, c_char_p, POINTER(c_stat), c_off_t)
