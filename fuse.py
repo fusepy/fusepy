@@ -231,8 +231,7 @@ class FuseError(BaseException):
 def safe(func):
     def wrapper(*args, **kwargs):
         try:
-            ret = func(*args, **kwargs)
-            return ret if ret is not None else -EFAULT
+            return func(*args, **kwargs)
         except FuseError, e:
             return -e.message if e.message else -EFAULT
         except:
@@ -477,7 +476,7 @@ class FuseOperations(object):
     def __call__(self, op, *args, **kwargs):
         logging.debug('%s: %s', op, args[:1])
         if not hasattr(self, op):
-            return -EFAULT
+            raise FuseError(EFAULT)
         return getattr(self, op)(*args, **kwargs)
     
     def access(self, path, amode):
