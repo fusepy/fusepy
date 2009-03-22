@@ -1,18 +1,23 @@
+#!/usr/bin/env python
+
 from collections import defaultdict
 from errno import ENOENT
 from stat import S_IFDIR, S_IFLNK, S_IFREG
+from sys import argv, exit
 from time import time
 
-from fuse import FUSE, FuseError, FuseOperations
-
-import logging
+from fuse import FUSE, Operations, LoggingMixIn
 
 
-class MyOperations(FuseOperations):
+class Example(LoggingMixIn, Operations):
+    """Example memory filesystem. Supports only one level of files."""
+    
     def __init__(self):
         self.files = {}
         self.data = defaultdict(str)
         self.fd = 0
+        now = time()
+        self.files['/'] = dict(st_mode=(S_IFDIR | 0755), st_ctime=now, st_mtime=now, st_atime=now)
         
     def chmod(self, path, mode):
         self.files[path]['st_mode'] &= 0770000
@@ -32,19 +37,13 @@ class MyOperations(FuseOperations):
         
     def getattr(self, path, fh=None):
         if path not in self.files:
-            raise FuseError(ENOENT)
+            raise OSError(ENOENT)
         st = self.files[path]
         if path == '/':
             # Add 2 for `.` and `..` , subtruct 1 for `/`
             st['st_nlink'] = len(self.files) + 1
         return st
-    
-    def init(self):
-        mode = S_IFDIR | 0755
-        now = time()
-        self.files['/'] = dict(st_mode=mode, st_ctime=now, st_mtime=now,
-                st_atime=now)
-    
+        
     def mkdir(self, path, mode):
         self.files[path] = dict(st_mode=(S_IFDIR | mode), st_nlink=2,
                 st_size=0, st_ctime=time(), st_mtime=time(), st_atime=time())
@@ -71,12 +70,11 @@ class MyOperations(FuseOperations):
         self.files.pop(path)
         return 0
     
-    def statvfs(self, path):
+    def statfs(self, path):
         return dict(f_bsize=512, f_blocks=4096, f_bavail=2048)
     
-    def symlink(self, source, target):
-        self.files[target] = dict(st_mode=(S_IFLNK | 0777), st_nlink=1,
-                st_size=len(source))
+    def symlink(self, target, source):
+        self.files[target] = dict(st_mode=(S_IFLNK | 0777), st_nlink=1, st_size=len(source))
         self.data[target] = source
         return 0
     
@@ -89,10 +87,11 @@ class MyOperations(FuseOperations):
         self.files.pop(path)
         return 0
     
-    def utimens(self, path, atime, mtime):
+    def utimens(self, path, times=None):
         now = time()
-        self.files[path]['st_atime'] = atime or now
-        self.files[path]['st_mtime'] = mtime or now
+        atime, mtime = times if times else (now, now)
+        self.files[path]['st_atime'] = atime
+        self.files[path]['st_mtime'] = mtime
         return 0
     
     def write(self, path, data, offset, fh):
@@ -101,6 +100,8 @@ class MyOperations(FuseOperations):
         return len(data)
 
 
-if __name__ == "__main__":        
-    logging.basicConfig(level=logging.DEBUG)
-    fuse = FUSE(MyOperations(), foreground=True, fsname="ExampleFS")
+if __name__ == "__main__":
+    if len(argv) != 2:
+        print 'usage: %s <mountpoint>' % argv[0]
+        exit(1)
+    fuse = FUSE(Example(), argv[1], foreground=True)
