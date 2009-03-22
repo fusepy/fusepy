@@ -9,7 +9,7 @@ from time import time
 from fuse import FUSE, Operations, LoggingMixIn
 
 
-class Example(LoggingMixIn, Operations):
+class Memory(LoggingMixIn, Operations):
     """Example memory filesystem. Supports only one level of files."""
     
     def __init__(self):
@@ -104,4 +104,4 @@ if __name__ == "__main__":
     if len(argv) != 2:
         print 'usage: %s <mountpoint>' % argv[0]
         exit(1)
-    fuse = FUSE(Example(), argv[1], foreground=True)
+    fuse = FUSE(Memory(), argv[1], foreground=True)
