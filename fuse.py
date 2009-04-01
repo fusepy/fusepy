@@ -22,25 +22,96 @@ from platform import machine, system
 from traceback import print_exc
 
 
-c_blkcnt_t = c_int64
-c_blksize_t = c_long
-c_fsblkcnt_t = c_ulong
-c_fsfilcnt_t = c_ulong
-c_gid_t = c_uint
-c_ino_t = c_ulong
-c_off_t = c_int64
-c_pid_t = c_int32
-c_time_t = c_long
-c_uid_t = c_uint
-
 class c_timespec(Structure):
-    _fields_ = [('tv_sec', c_time_t), ('tv_nsec', c_long)]
+    _fields_ = [('tv_sec', c_long), ('tv_nsec', c_long)]
 
 class c_utimbuf(Structure):
     _fields_ = [('actime', c_timespec), ('modtime', c_timespec)]
 
 class c_stat(Structure):
     pass    # Platform dependent
+
+_system = system()
+if _system == 'Darwin':
+    _libiconv = CDLL(find_library("iconv"), RTLD_GLOBAL)     # Dependency for libfuse
+    ENOTSUP = 45
+    c_dev_t = c_int32
+    c_fsblkcnt_t = c_ulong
+    c_fsfilcnt_t = c_ulong
+    c_gid_t = c_uint32
+    c_mode_t = c_uint16
+    c_off_t = c_int64
+    c_pid_t = c_int32
+    c_uid_t = c_uint32
+    setxattr_t = CFUNCTYPE(c_int, c_char_p, c_char_p, POINTER(c_byte), c_size_t, c_int, c_uint32)
+    getxattr_t = CFUNCTYPE(c_int, c_char_p, c_char_p, POINTER(c_byte), c_size_t, c_uint32)
+    c_stat._fields_ = [
+        ('st_dev', c_dev_t),
+        ('st_ino', c_uint32),
+        ('st_mode', c_mode_t),
+        ('st_nlink', c_uint16),
+        ('st_uid', c_uid_t),
+        ('st_gid', c_gid_t),
+        ('st_rdev', c_dev_t),
+        ('st_atimespec', c_timespec),
+        ('st_mtimespec', c_timespec),
+        ('st_ctimespec', c_timespec),
+        ('st_size', c_off_t),
+        ('st_blocks', c_int64),
+        ('st_blksize', c_int32)]
+elif _system == 'Linux':
+    ENOTSUP = 95
+    c_dev_t = c_ulonglong
+    c_fsblkcnt_t = c_ulonglong
+    c_fsfilcnt_t = c_ulonglong
+    c_gid_t = c_uint
+    c_mode_t = c_uint
+    c_off_t = c_longlong
+    c_pid_t = c_int
+    c_uid_t = c_uint
+    setxattr_t = CFUNCTYPE(c_int, c_char_p, c_char_p, POINTER(c_byte), c_size_t, c_int)
+    getxattr_t = CFUNCTYPE(c_int, c_char_p, c_char_p, POINTER(c_byte), c_size_t)
+    
+    _machine = machine()
+    if _machine == 'i686':
+        c_stat._fields_ = [
+            ('st_dev', c_dev_t),
+            ('__pad1', c_ushort),
+            ('__st_ino', c_ulong),
+            ('st_mode', c_mode_t),
+            ('st_nlink', c_uint),
+            ('st_uid', c_uid_t),
+            ('st_gid', c_gid_t),
+            ('st_rdev', c_dev_t),
+            ('__pad2', c_ushort),
+            ('st_size', c_off_t),
+            ('st_blksize', c_long),
+            ('st_blocks', c_longlong),
+            ('st_atimespec', c_timespec),
+            ('st_mtimespec', c_timespec),
+            ('st_ctimespec', c_timespec),
+            ('st_ino', c_ulonglong)]
+    elif machine() == 'x86_64':
+        c_stat._fields_ = [
+            ('st_dev', c_dev_t),
+            ('st_ino', c_ulong),
+            ('st_nlink', c_ulong),
+            ('st_mode', c_mode_t),
+            ('st_uid', c_uid_t),
+            ('st_gid', c_gid_t),
+            ('__pad0', c_int),
+            ('st_rdev', c_dev_t),
+            ('st_size', c_off_t),
+            ('st_blksize', c_long),
+            ('st_blocks', c_long),
+            ('st_atimespec', c_timespec),
+            ('st_mtimespec', c_timespec),
+            ('st_ctimespec', c_timespec)]
+    else:
+        raise NotImplementedError('Linux %s is not supported.' % _machine)
+else:
+    raise NotImplementedError('%s is not supported.' % _system)
+
 
 class c_statvfs(Structure):
     _fields_ = [
@@ -51,11 +122,8 @@ class c_statvfs(Structure):
         ('f_bavail', c_fsblkcnt_t),
         ('f_files', c_fsfilcnt_t),
         ('f_ffree', c_fsfilcnt_t),
-        ('f_favail', c_fsfilcnt_t),
-        ('f_fsid', c_ulong),
-        ('f_flag', c_ulong),
-        ('f_namemax', c_ulong)]
-        
+        ('f_favail', c_fsfilcnt_t)]
+
 class fuse_file_info(Structure):
     _fields_ = [
         ('flags', c_int),
@@ -77,120 +145,48 @@ class fuse_context(Structure):
         ('private_data', c_voidp)]
 
 class fuse_operations(Structure):
-    pass    # Platform dependent
+    _fields_ = [
+        ('getattr', CFUNCTYPE(c_int, c_char_p, POINTER(c_stat))),
+        ('readlink', CFUNCTYPE(c_int, c_char_p, POINTER(c_byte), c_size_t)),
+        ('getdir', c_voidp),    # Deprecated, use readdir
+        ('mknod', CFUNCTYPE(c_int, c_char_p, c_mode_t, c_dev_t)),
+        ('mkdir', CFUNCTYPE(c_int, c_char_p, c_mode_t)),
+        ('unlink', CFUNCTYPE(c_int, c_char_p)),
+        ('rmdir', CFUNCTYPE(c_int, c_char_p)),
+        ('symlink', CFUNCTYPE(c_int, c_char_p, c_char_p)),
+        ('rename', CFUNCTYPE(c_int, c_char_p, c_char_p)),
+        ('link', CFUNCTYPE(c_int, c_char_p, c_char_p)),
+        ('chmod', CFUNCTYPE(c_int, c_char_p, c_mode_t)),
+        ('chown', CFUNCTYPE(c_int, c_char_p, c_uid_t, c_gid_t)),
+        ('truncate', CFUNCTYPE(c_int, c_char_p, c_off_t)),
+        ('utime', c_voidp),     # Deprecated, use utimens
+        ('open', CFUNCTYPE(c_int, c_char_p, POINTER(fuse_file_info))),
+        ('read', CFUNCTYPE(c_int, c_char_p, POINTER(c_byte), c_size_t, c_off_t, POINTER(fuse_file_info))),
+        ('write', CFUNCTYPE(c_int, c_char_p, POINTER(c_byte), c_size_t, c_off_t, POINTER(fuse_file_info))),
+        ('statfs', CFUNCTYPE(c_int, c_char_p, POINTER(c_statvfs))),
+        ('flush', CFUNCTYPE(c_int, c_char_p, POINTER(fuse_file_info))),
+        ('release', CFUNCTYPE(c_int, c_char_p, POINTER(fuse_file_info))),
+        ('fsync', CFUNCTYPE(c_int, c_char_p, c_int, POINTER(fuse_file_info))),
+        ('setxattr', setxattr_t),
+        ('getxattr', getxattr_t),
+        ('listxattr', CFUNCTYPE(c_int, c_char_p, POINTER(c_byte), c_size_t)),
+        ('removexattr', CFUNCTYPE(c_int, c_char_p, c_char_p)),
+        ('opendir', CFUNCTYPE(c_int, c_char_p, POINTER(fuse_file_info))),
+        ('readdir', CFUNCTYPE(c_int, c_char_p, c_voidp, CFUNCTYPE(c_int, c_voidp, c_char_p, POINTER(c_stat), c_off_t), c_off_t, POINTER(fuse_file_info))),
+        ('releasedir', CFUNCTYPE(c_int, c_char_p, POINTER(fuse_file_info))),
+        ('fsyncdir', CFUNCTYPE(c_int, c_char_p, c_int, POINTER(fuse_file_info))),
+        ('init', c_voidp),      # Use __init__
+        ('destroy', c_voidp),   # Use __del__
+        ('access', CFUNCTYPE(c_int, c_char_p, c_int)),
+        ('create', CFUNCTYPE(c_int, c_char_p, c_mode_t, POINTER(fuse_file_info))),
+        ('ftruncate', CFUNCTYPE(c_int, c_char_p, c_off_t, POINTER(fuse_file_info))),
+        ('fgetattr', CFUNCTYPE(c_int, c_char_p, POINTER(c_stat), POINTER(fuse_file_info))),
+        ('lock', CFUNCTYPE(c_int, c_char_p, POINTER(fuse_file_info), c_int, c_voidp)),
+        ('utimens', CFUNCTYPE(c_int, c_char_p, POINTER(c_utimbuf))),
+        ('bmap', CFUNCTYPE(c_int, c_char_p, c_size_t, POINTER(c_ulonglong)))]
 
-fuse_fill_dir_t = CFUNCTYPE(c_int, c_voidp, c_char_p, POINTER(c_stat), c_off_t)
-
-
-_system = system()
-if _system == 'Darwin':
-    _libiconv = CDLL(find_library("iconv"), RTLD_GLOBAL)     # Dependency for libfuse
-    ENOTSUP = 45
-    c_dev_t = c_int32
-    c_mode_t = c_uint16
-    c_nlink_t = c_uint16
-    setxattr_t = CFUNCTYPE(c_int, c_char_p, c_char_p, POINTER(c_byte), c_size_t, c_int, c_uint32)
-    getxattr_t = CFUNCTYPE(c_int, c_char_p, c_char_p, POINTER(c_byte), c_size_t, c_uint32)
-    c_stat._fields_ = [
-        ('st_dev', c_dev_t),
-        ('st_ino', c_ino_t),
-        ('st_mode', c_mode_t),
-        ('st_nlink', c_nlink_t),
-        ('st_uid', c_uid_t),
-        ('st_gid', c_gid_t),
-        ('st_rdev', c_dev_t),
-        ('st_atimespec', c_timespec),
-        ('st_mtimespec', c_timespec),
-        ('st_ctimespec', c_timespec),
-        ('st_size', c_off_t),
-        ('st_blocks', c_blkcnt_t),
-        ('st_blksize', c_blksize_t)]
-elif _system == 'Linux':
-    ENOTSUP = 95
-    c_dev_t = c_ulonglong
-    c_mode_t = c_uint
-    c_nlink_t = c_ulong
-    setxattr_t = CFUNCTYPE(c_int, c_char_p, c_char_p, POINTER(c_byte), c_size_t, c_int)
-    getxattr_t = CFUNCTYPE(c_int, c_char_p, c_char_p, POINTER(c_byte), c_size_t)
-    if machine() == 'x86_64':
-        c_stat._fields_ = [
-            ('st_dev', c_dev_t),
-            ('st_ino', c_ino_t),
-            ('st_nlink', c_nlink_t),
-            ('st_mode', c_mode_t),
-            ('st_uid', c_uid_t),
-            ('st_gid', c_gid_t),
-            ('__pad0', c_int),
-            ('st_rdev', c_dev_t),
-            ('st_size', c_off_t),
-            ('st_blksize', c_blksize_t),
-            ('st_blocks', c_blkcnt_t),
-            ('st_atimespec', c_timespec),
-            ('st_mtimespec', c_timespec),
-            ('st_ctimespec', c_timespec)]
-    else:
-        c_stat._fields_ = [
-            ('st_dev', c_dev_t),
-            ('__pad1', c_short),
-            ('st_ino', c_ino_t),
-            ('st_mode', c_mode_t),
-            ('st_nlink', c_nlink_t),
-            ('st_uid', c_uid_t),
-            ('st_gid', c_gid_t),
-            ('st_rdev', c_dev_t),
-            ('__pad2', c_short),
-            ('st_size', c_off_t),
-            ('st_blksize', c_blksize_t),
-            ('st_blocks', c_blkcnt_t),
-            ('st_atimespec', c_timespec),
-            ('st_mtimespec', c_timespec),
-            ('st_ctimespec', c_timespec)]
-else:
-    raise NotImplementedError('%s is not supported.' % _system)
-
-
-fuse_operations._fields_ = [
-    ('getattr', CFUNCTYPE(c_int, c_char_p, POINTER(c_stat))),
-    ('readlink', CFUNCTYPE(c_int, c_char_p, POINTER(c_byte), c_size_t)),
-    ('getdir', c_voidp),    # Deprecated, use readdir
-    ('mknod', CFUNCTYPE(c_int, c_char_p, c_mode_t, c_dev_t)),
-    ('mkdir', CFUNCTYPE(c_int, c_char_p, c_mode_t)),
-    ('unlink', CFUNCTYPE(c_int, c_char_p)),
-    ('rmdir', CFUNCTYPE(c_int, c_char_p)),
-    ('symlink', CFUNCTYPE(c_int, c_char_p, c_char_p)),
-    ('rename', CFUNCTYPE(c_int, c_char_p, c_char_p)),
-    ('link', CFUNCTYPE(c_int, c_char_p, c_char_p)),
-    ('chmod', CFUNCTYPE(c_int, c_char_p, c_mode_t)),
-    ('chown', CFUNCTYPE(c_int, c_char_p, c_uid_t, c_gid_t)),
-    ('truncate', CFUNCTYPE(c_int, c_char_p, c_off_t)),
-    ('utime', c_voidp),     # Deprecated, use utimens
-    ('open', CFUNCTYPE(c_int, c_char_p, POINTER(fuse_file_info))),
-    ('read', CFUNCTYPE(c_int, c_char_p, POINTER(c_byte), c_size_t, c_off_t, POINTER(fuse_file_info))),
-    ('write', CFUNCTYPE(c_int, c_char_p, POINTER(c_byte), c_size_t, c_off_t, POINTER(fuse_file_info))),
-    ('statfs', CFUNCTYPE(c_int, c_char_p, POINTER(c_statvfs))),
-    ('flush', CFUNCTYPE(c_int, c_char_p, POINTER(fuse_file_info))),
-    ('release', CFUNCTYPE(c_int, c_char_p, POINTER(fuse_file_info))),
-    ('fsync', CFUNCTYPE(c_int, c_char_p, c_int, POINTER(fuse_file_info))),
-    ('setxattr', setxattr_t),
-    ('getxattr', getxattr_t),
-    ('listxattr', CFUNCTYPE(c_int, c_char_p, POINTER(c_byte), c_size_t)),
-    ('removexattr', CFUNCTYPE(c_int, c_char_p, c_char_p)),
-    ('opendir', CFUNCTYPE(c_int, c_char_p, POINTER(fuse_file_info))),
-    ('readdir', CFUNCTYPE(c_int, c_char_p, c_voidp, fuse_fill_dir_t, c_off_t, POINTER(fuse_file_info))),
-    ('releasedir', CFUNCTYPE(c_int, c_char_p, POINTER(fuse_file_info))),
-    ('fsyncdir', CFUNCTYPE(c_int, c_char_p, c_int, POINTER(fuse_file_info))),
-    ('init', c_voidp),      # Use __init__
-    ('destroy', c_voidp),   # Use __del__
-    ('access', CFUNCTYPE(c_int, c_char_p, c_int)),
-    ('create', CFUNCTYPE(c_int, c_char_p, c_mode_t, POINTER(fuse_file_info))),
-    ('ftruncate', CFUNCTYPE(c_int, c_char_p, c_off_t, POINTER(fuse_file_info))),
-    ('fgetattr', CFUNCTYPE(c_int, c_char_p, POINTER(c_stat), POINTER(fuse_file_info))),
-    ('lock', CFUNCTYPE(c_int, c_char_p, POINTER(fuse_file_info), c_int, c_voidp)),
-    ('utimens', CFUNCTYPE(c_int, c_char_p, POINTER(c_utimbuf))),
-    ('bmap', CFUNCTYPE(c_int, c_char_p, c_size_t, POINTER(c_ulonglong)))]
 
 _libfuse = CDLL(find_library("fuse"))
-
 
 def fuse_get_context():
     """Returns a (uid, gid, pid) tuple"""
@@ -485,6 +481,8 @@ class Operations:
         raise OSError(ENOTSUP)
     
     def statfs(self, path):
+        """Returns a dictionary with keys identical to the statvfs C structure of statvfs(3).
+        The f_frsize, f_favail, f_fsid and f_flag fields are ignored by FUSE though."""
         return {}
     
     def symlink(self, target, source):
