@@ -54,8 +54,8 @@ class SFTP(Operations):
 
     def getattr(self, path, fh=None):
         st = self.sftp.lstat(path)
-        return dict((key, getattr(st, key)) for key in ('st_atime', 'st_gid', 'st_mode',
-                'st_mtime', 'st_size', 'st_uid'))
+        return dict((key, getattr(st, key)) for key in ('st_atime', 'st_gid',
+            'st_mode', 'st_mtime', 'st_size', 'st_uid'))
 
     def mkdir(self, path, mode):
         return self.sftp.mkdir(path, mode)

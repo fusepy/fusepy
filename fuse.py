@@ -33,7 +33,7 @@ class c_stat(Structure):
 
 _system = system()
 if _system == 'Darwin':
-    _libiconv = CDLL(find_library("iconv"), RTLD_GLOBAL)     # Dependency for libfuse
+    _libiconv = CDLL(find_library("iconv"), RTLD_GLOBAL)     # libfuse dependency
     ENOTSUP = 45
     c_dev_t = c_int32
     c_fsblkcnt_t = c_ulong
@@ -43,8 +43,10 @@ if _system == 'Darwin':
     c_off_t = c_int64
     c_pid_t = c_int32
     c_uid_t = c_uint32
-    setxattr_t = CFUNCTYPE(c_int, c_char_p, c_char_p, POINTER(c_byte), c_size_t, c_int, c_uint32)
-    getxattr_t = CFUNCTYPE(c_int, c_char_p, c_char_p, POINTER(c_byte), c_size_t, c_uint32)
+    setxattr_t = CFUNCTYPE(c_int, c_char_p, c_char_p, POINTER(c_byte),
+        c_size_t, c_int, c_uint32)
+    getxattr_t = CFUNCTYPE(c_int, c_char_p, c_char_p, POINTER(c_byte),
+        c_size_t, c_uint32)
     c_stat._fields_ = [
         ('st_dev', c_dev_t),
         ('st_ino', c_uint32),
@@ -161,8 +163,10 @@ class fuse_operations(Structure):
         ('truncate', CFUNCTYPE(c_int, c_char_p, c_off_t)),
         ('utime', c_voidp),     # Deprecated, use utimens
         ('open', CFUNCTYPE(c_int, c_char_p, POINTER(fuse_file_info))),
-        ('read', CFUNCTYPE(c_int, c_char_p, POINTER(c_byte), c_size_t, c_off_t, POINTER(fuse_file_info))),
-        ('write', CFUNCTYPE(c_int, c_char_p, POINTER(c_byte), c_size_t, c_off_t, POINTER(fuse_file_info))),
+        ('read', CFUNCTYPE(c_int, c_char_p, POINTER(c_byte), c_size_t, c_off_t,
+            POINTER(fuse_file_info))),
+        ('write', CFUNCTYPE(c_int, c_char_p, POINTER(c_byte), c_size_t, c_off_t,
+            POINTER(fuse_file_info))),
         ('statfs', CFUNCTYPE(c_int, c_char_p, POINTER(c_statvfs))),
         ('flush', CFUNCTYPE(c_int, c_char_p, POINTER(fuse_file_info))),
         ('release', CFUNCTYPE(c_int, c_char_p, POINTER(fuse_file_info))),
@@ -172,7 +176,8 @@ class fuse_operations(Structure):
         ('listxattr', CFUNCTYPE(c_int, c_char_p, POINTER(c_byte), c_size_t)),
         ('removexattr', CFUNCTYPE(c_int, c_char_p, c_char_p)),
         ('opendir', CFUNCTYPE(c_int, c_char_p, POINTER(fuse_file_info))),
-        ('readdir', CFUNCTYPE(c_int, c_char_p, c_voidp, CFUNCTYPE(c_int, c_voidp, c_char_p, POINTER(c_stat), c_off_t), c_off_t, POINTER(fuse_file_info))),
+        ('readdir', CFUNCTYPE(c_int, c_char_p, c_voidp, CFUNCTYPE(c_int, c_voidp,
+            c_char_p, POINTER(c_stat), c_off_t), c_off_t, POINTER(fuse_file_info))),
         ('releasedir', CFUNCTYPE(c_int, c_char_p, POINTER(fuse_file_info))),
         ('fsyncdir', CFUNCTYPE(c_int, c_char_p, c_int, POINTER(fuse_file_info))),
         ('init', c_voidp),      # Use __init__
@@ -180,7 +185,8 @@ class fuse_operations(Structure):
         ('access', CFUNCTYPE(c_int, c_char_p, c_int)),
         ('create', CFUNCTYPE(c_int, c_char_p, c_mode_t, POINTER(fuse_file_info))),
         ('ftruncate', CFUNCTYPE(c_int, c_char_p, c_off_t, POINTER(fuse_file_info))),
-        ('fgetattr', CFUNCTYPE(c_int, c_char_p, POINTER(c_stat), POINTER(fuse_file_info))),
+        ('fgetattr', CFUNCTYPE(c_int, c_char_p, POINTER(c_stat),
+            POINTER(fuse_file_info))),
         ('lock', CFUNCTYPE(c_int, c_char_p, POINTER(fuse_file_info), c_int, c_voidp)),
         ('utimens', CFUNCTYPE(c_int, c_char_p, POINTER(c_utimbuf))),
         ('bmap', CFUNCTYPE(c_int, c_char_p, c_size_t, POINTER(c_ulonglong)))]
@@ -209,7 +215,8 @@ def _operation_wrapper(func, *args, **kwargs):
         return -EFAULT
 
 class FUSE(object):
-    """Assumes API version 2.6 or later. Should not be subclassed under normal use."""
+    """Assumes API version 2.6 or later.
+       Should not be subclassed under normal use."""
     
     def __init__(self, operations, mountpoint, **kwargs):
         self.operations = operations
@@ -232,7 +239,8 @@ class FUSE(object):
             if prototype != c_voidp and getattr(operations, name, None):
                 op = partial(_operation_wrapper, getattr(self, name))
                 setattr(fuse_ops, name, prototype(op))
-        _libfuse.fuse_main_real(len(args), argv, pointer(fuse_ops), sizeof(fuse_ops), None)
+        _libfuse.fuse_main_real(len(args), argv, pointer(fuse_ops),
+            sizeof(fuse_ops), None)
         del self.operations     # Invoke the destructor
         
     def getattr(self, path, buf):
@@ -385,11 +393,12 @@ from errno import EACCES, ENOENT
 from stat import S_IFDIR
 
 class Operations:
-    """This class should be subclassed and passed as an argument to FUSE on initialization.
-       All operations should raise an OSError exception on error.
+    """This class should be subclassed and passed as an argument to FUSE on
+       initialization. All operations should raise an OSError exception on
+       error.
        
-       When in doubt of what an operation should do, check the FUSE header file or the
-       corresponding system call man page."""
+       When in doubt of what an operation should do, check the FUSE header
+       file or the corresponding system call man page."""
     
     def __call__(self, op, *args):
         if not hasattr(self, op):
@@ -421,8 +430,9 @@ class Operations:
         return 0
     
     def getattr(self, path, fh=None):
-        """Returns a dictionary with keys identical to the stat C structure of stat(2).
-        st_atime, st_mtime and st_ctime should be floats."""
+        """Returns a dictionary with keys identical to the stat C structure
+           of stat(2).
+           st_atime, st_mtime and st_ctime should be floats."""
         if path != '/':
             raise OSError(ENOENT)
         return dict(st_mode=(S_IFDIR | 0755), st_nlink=2)
@@ -481,8 +491,9 @@ class Operations:
         raise OSError(ENOTSUP)
     
     def statfs(self, path):
-        """Returns a dictionary with keys identical to the statvfs C structure of statvfs(3).
-        The f_frsize, f_favail, f_fsid and f_flag fields are ignored by FUSE though."""
+        """Returns a dictionary with keys identical to the statvfs C structure
+           of statvfs(3). The f_frsize, f_favail, f_fsid and f_flag fields are
+           ignored by FUSE though."""
         return {}
     
     def symlink(self, target, source):

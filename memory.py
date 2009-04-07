@@ -17,7 +17,8 @@ class Memory(LoggingMixIn, Operations):
         self.data = defaultdict(str)
         self.fd = 0
         now = time()
-        self.files['/'] = dict(st_mode=(S_IFDIR | 0755), st_ctime=now, st_mtime=now, st_atime=now)
+        self.files['/'] = dict(st_mode=(S_IFDIR | 0755), st_ctime=now,
+            st_mtime=now, st_atime=now)
         
     def chmod(self, path, mode):
         self.files[path]['st_mode'] &= 0770000
@@ -31,7 +32,7 @@ class Memory(LoggingMixIn, Operations):
     
     def create(self, path, mode):
         self.files[path] = dict(st_mode=(S_IFREG | mode), st_nlink=1,
-                st_size=0, st_ctime=time(), st_mtime=time(), st_atime=time())
+            st_size=0, st_ctime=time(), st_mtime=time(), st_atime=time())
         self.fd += 1
         return self.fd
         
@@ -74,7 +75,8 @@ class Memory(LoggingMixIn, Operations):
         return dict(f_bsize=512, f_blocks=4096, f_bavail=2048)
     
     def symlink(self, target, source):
-        self.files[target] = dict(st_mode=(S_IFLNK | 0777), st_nlink=1, st_size=len(source))
+        self.files[target] = dict(st_mode=(S_IFLNK | 0777), st_nlink=1,
+            st_size=len(source))
         self.data[target] = source
         return 0
     
