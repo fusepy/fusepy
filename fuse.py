@@ -287,8 +287,9 @@ class FUSE(object):
     
     def read(self, path, buf, size, offset, fi):
         ret = self.operations('read', path, size, offset, fi.contents.fh)
-        memmove(buf, create_string_buffer(ret), size)
-        return size
+        if ret:
+            memmove(buf, create_string_buffer(ret), size)
+        return len(ret)
     
     def write(self, path, buf, size, offset, fi):
         data = string_at(buf, size)
