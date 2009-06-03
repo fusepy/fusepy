@@ -25,7 +25,7 @@ class Context(LoggingMixIn, Operations):
             size = len('%s\n' % pid)
             st = dict(st_mode=(S_IFREG | 0444), st_size=size)
         else:
-            raise OSError(ENOENT)
+            raise OSError(ENOENT, '')
         st['st_ctime'] = st['st_mtime'] = st['st_atime'] = time()
         return st
         

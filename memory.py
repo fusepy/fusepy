@@ -38,7 +38,7 @@ class Memory(LoggingMixIn, Operations):
         
     def getattr(self, path, fh=None):
         if path not in self.files:
-            raise OSError(ENOENT)
+            raise OSError(ENOENT, '')
         st = self.files[path]
         if path == '/':
             # Add 2 for `.` and `..` , subtruct 1 for `/`

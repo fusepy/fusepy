@@ -20,7 +20,7 @@ class Loopback(LoggingMixIn, Operations):
     
     def access(self, path, mode):
         if not os.access(path, mode):
-            raise OSError(EACCES)
+            raise OSError(EACCES, '')
     
     chmod = os.chmod
     chown = os.chown

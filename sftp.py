@@ -32,10 +32,10 @@ class SFTP(Operations):
             ret = getattr(self, op)(self.root + path, *args)
             return ret
         except OSError, e:
-            ret = '[Errno %s]' % (e.errno or e.message)
+            ret = str(e)
             raise
         except IOError, e:
-            ret = '[Errno %s]' % (e.errno or e.message)
+            ret = str(e)
             raise OSError(*e.args)
         finally:
             print '<-', op
