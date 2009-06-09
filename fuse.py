@@ -204,16 +204,6 @@ def set_st_attrs(st, attrs):
         elif hasattr(st, key):
             setattr(st, key, val)
 
-def _operation_wrapper(func, *args, **kwargs):
-    """Decorator for the methods of class FUSE"""
-    try:
-        return func(*args, **kwargs) or 0
-    except OSError, e:
-        return -(e.errno or EFAULT)
-    except:
-        print_exc()
-        return -EFAULT
-
 _libfuse = CDLL(find_library("fuse"))
 
 
@@ -253,12 +243,22 @@ class FUSE(object):
         fuse_ops = fuse_operations()
         for name, prototype in fuse_operations._fields_:
             if prototype != c_voidp and getattr(operations, name, None):
-                op = partial(_operation_wrapper, getattr(self, name))
+                op = partial(self._wrapper_, getattr(self, name))
                 setattr(fuse_ops, name, prototype(op))
         _libfuse.fuse_main_real(len(args), argv, pointer(fuse_ops),
             sizeof(fuse_ops), None)
         del self.operations     # Invoke the destructor
-        
+    
+    def _wrapper_(self, func, *args, **kwargs):
+        """Decorator for the methods that follow"""
+        try:
+            return func(*args, **kwargs) or 0
+        except OSError, e:
+            return -(e.errno or EFAULT)
+        except:
+            print_exc()
+            return -EFAULT
+    
     def getattr(self, path, buf):
         return self.fgetattr(path, buf, None)
     
