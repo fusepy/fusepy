@@ -377,7 +377,8 @@ class FUSE(object):
                     set_st_attrs(st, attrs)
                 else:
                     st = None
-            filler(buf, name, st, offset)
+            if filler(buf, name, st, offset) != 0:
+                break
         return 0
     
     def releasedir(self, path, fip):
