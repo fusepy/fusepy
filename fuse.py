@@ -475,7 +475,11 @@ class Operations:
     def getattr(self, path, fh=None):
         """Returns a dictionary with keys identical to the stat C structure
            of stat(2).
-           st_atime, st_mtime and st_ctime should be floats."""
+           st_atime, st_mtime and st_ctime should be floats.
+           NOTE: There is an incombatibility between Linux and Mac OS X concerning
+           st_nlink of directories. Mac OS X counts all files inside the directory,
+           while Linux counts only the subdirectories."""
+        
         if path != '/':
             raise OSError(ENOENT, '')
         return dict(st_mode=(S_IFDIR | 0755), st_nlink=2)

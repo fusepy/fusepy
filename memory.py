@@ -18,7 +18,7 @@ class Memory(LoggingMixIn, Operations):
         self.fd = 0
         now = time()
         self.files['/'] = dict(st_mode=(S_IFDIR | 0755), st_ctime=now,
-            st_mtime=now, st_atime=now)
+            st_mtime=now, st_atime=now, st_nlink=2)
         
     def chmod(self, path, mode):
         self.files[path]['st_mode'] &= 0770000
@@ -40,14 +40,12 @@ class Memory(LoggingMixIn, Operations):
         if path not in self.files:
             raise OSError(ENOENT, '')
         st = self.files[path]
-        if path == '/':
-            # Add 2 for `.` and `..` , subtruct 1 for `/`
-            st['st_nlink'] = len(self.files) + 1
         return st
         
     def mkdir(self, path, mode):
         self.files[path] = dict(st_mode=(S_IFDIR | mode), st_nlink=2,
                 st_size=0, st_ctime=time(), st_mtime=time(), st_atime=time())
+        self.files['/']['st_nlink'] += 1
         return 0
     
     def open(self, path, flags):
@@ -69,6 +67,7 @@ class Memory(LoggingMixIn, Operations):
     
     def rmdir(self, path):
         self.files.pop(path)
+        self.files['/']['st_nlink'] -= 1
         return 0
     
     def statfs(self, path):

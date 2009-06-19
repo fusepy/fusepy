@@ -14,7 +14,7 @@ class Context(LoggingMixIn, Operations):
     def getattr(self, path, fh=None):
         uid, gid, pid = fuse_get_context()
         if path == '/':
-            st = dict(st_mode=(S_IFDIR | 0755), st_nlink=5)
+            st = dict(st_mode=(S_IFDIR | 0755), st_nlink=2)
         elif path == '/uid':
             size = len('%s\n' % uid)
             st = dict(st_mode=(S_IFREG | 0444), st_size=size)
