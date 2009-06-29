@@ -264,7 +264,8 @@ class FUSE(object):
     
     def readlink(self, path, buf, bufsize):
         ret = self.operations('readlink', path)
-        memmove(buf, create_string_buffer(ret), bufsize)
+        strbuf = create_string_buffer(ret[:bufsize - 1])
+        memmove(buf, strbuf, len(strbuf))
         return 0
     
     def mknod(self, path, mode, dev):
