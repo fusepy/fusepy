@@ -16,7 +16,7 @@ from __future__ import division
 
 from ctypes import *
 from ctypes.util import find_library
-from errno import EFAULT
+from errno import EFAULT, ERANGE
 from functools import partial
 from platform import machine, system
 from traceback import print_exc
@@ -263,8 +263,8 @@ class FUSE(object):
         return self.fgetattr(path, buf, None)
     
     def readlink(self, path, buf, bufsize):
-        ret = self.operations('readlink', path)
-        strbuf = create_string_buffer(ret[:bufsize - 1])
+        ret = self.operations('readlink', path)[:bufsize-1]
+        strbuf = ret[:bufsize-1] + '\x00'
         memmove(buf, strbuf, len(strbuf))
         return 0
     
@@ -343,19 +343,22 @@ class FUSE(object):
         return self.operations('setxattr', path, name, s, options, *args)
     
     def getxattr(self, path, name, value, size, *args):
-        ret = self.operations('getxattr', path, name, *args)
-        buf = create_string_buffer(ret)
+        buf = self.operations('getxattr', path, name, *args)
+        bufsize = len(buf)
         if bool(value):
-            memmove(value, buf, size)
-        return len(ret)
+            if bufsize > size:
+                return -ERANGE
+            memmove(value, buf, bufsize)
+        return bufsize
     
     def listxattr(self, path, namebuf, size):
         ret = self.operations('listxattr', path)
-        if not ret:
-            return 0
-        buf = create_string_buffer('\x00'.join(ret))
+        buf = '\x00'.join(ret) + '\x00' if ret else ''
+        bufsize = len(buf)
         if bool(namebuf):
-            memmove(namebuf, buf, size)
+            if bufsize > size:
+                return -ERANGE
+            memmove(namebuf, buf, bufsize)
         return len(buf)
     
     def removexattr(self, path, name):
