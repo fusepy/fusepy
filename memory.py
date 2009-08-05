@@ -28,25 +28,34 @@ class Memory(LoggingMixIn, Operations):
     def chown(self, path, uid, gid):
         self.files[path]['st_uid'] = uid
         self.files[path]['st_gid'] = gid
-        return 0
     
     def create(self, path, mode):
         self.files[path] = dict(st_mode=(S_IFREG | mode), st_nlink=1,
             st_size=0, st_ctime=time(), st_mtime=time(), st_atime=time())
         self.fd += 1
         return self.fd
-        
+    
     def getattr(self, path, fh=None):
         if path not in self.files:
             raise OSError(ENOENT, '')
         st = self.files[path]
         return st
-        
+    
+    def getxattr(self, path, name, position=0):
+        attrs = self.files[path].get('attrs', {})
+        try:
+            return attrs[name]
+        except KeyError:
+            return ''       # Should return ENOATTR
+    
+    def listxattr(self, path):
+        attrs = self.files[path].get('attrs', {})
+        return attrs.keys()
+    
     def mkdir(self, path, mode):
         self.files[path] = dict(st_mode=(S_IFDIR | mode), st_nlink=2,
                 st_size=0, st_ctime=time(), st_mtime=time(), st_atime=time())
         self.files['/']['st_nlink'] += 1
-        return 0
     
     def open(self, path, flags):
         self.fd += 1
@@ -61,14 +70,24 @@ class Memory(LoggingMixIn, Operations):
     def readlink(self, path):
         return self.data[path]
     
+    def removexattr(self, path, name):
+        attrs = self.files[path].get('attrs', {})
+        try:
+            del attrs[name]
+        except KeyError:
+            pass        # Should return ENOATTR
+    
     def rename(self, old, new):
         self.files[new] = self.files.pop(old)
-        return 0
     
     def rmdir(self, path):
         self.files.pop(path)
         self.files['/']['st_nlink'] -= 1
-        return 0
+    
+    def setxattr(self, path, name, value, options, position=0):
+        # Ignore options
+        attrs = self.files[path].setdefault('attrs', {})
+        attrs[name] = value
     
     def statfs(self, path):
         return dict(f_bsize=512, f_blocks=4096, f_bavail=2048)
@@ -77,23 +96,19 @@ class Memory(LoggingMixIn, Operations):
         self.files[target] = dict(st_mode=(S_IFLNK | 0777), st_nlink=1,
             st_size=len(source))
         self.data[target] = source
-        return 0
     
     def truncate(self, path, length, fh=None):
         self.data[path] = self.data[path][:length]
         self.files[path]['st_size'] = length
-        return 0
     
     def unlink(self, path):
         self.files.pop(path)
-        return 0
     
     def utimens(self, path, times=None):
         now = time()
         atime, mtime = times if times else (now, now)
         self.files[path]['st_atime'] = atime
         self.files[path]['st_mtime'] = mtime
-        return 0
     
     def write(self, path, data, offset, fh):
         self.data[path] = self.data[path][:offset] + data
