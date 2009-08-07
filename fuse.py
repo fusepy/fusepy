@@ -263,7 +263,7 @@ class FUSE(object):
         return self.fgetattr(path, buf, None)
     
     def readlink(self, path, buf, bufsize):
-        ret = self.operations('readlink', path)[:bufsize-1]
+        ret = self.operations('readlink', path)
         strbuf = ret[:bufsize-1] + '\x00'
         memmove(buf, strbuf, len(strbuf))
         return 0
