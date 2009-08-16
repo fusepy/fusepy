@@ -549,8 +549,8 @@ class Operations:
     
     def statfs(self, path):
         """Returns a dictionary with keys identical to the statvfs C structure
-           of statvfs(3). The f_frsize, f_favail, f_fsid and f_flag fields are
-           ignored by FUSE though."""
+           of statvfs(3).
+           On Mac OS X f_bsize and f_frsize must be a power of 2 (minimum 512)."""
         return {}
     
     def symlink(self, target, source):
