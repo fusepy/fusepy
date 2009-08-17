@@ -264,8 +264,8 @@ class FUSE(object):
     
     def readlink(self, path, buf, bufsize):
         ret = self.operations('readlink', path)
-        strbuf = ret[:bufsize-1] + '\x00'
-        memmove(buf, strbuf, len(strbuf))
+        data = create_string_buffer(ret[:bufsize - 1])
+        memmove(buf, data, len(data))
         return 0
     
     def mknod(self, path, mode, dev):
@@ -309,9 +309,11 @@ class FUSE(object):
     def read(self, path, buf, size, offset, fip):
         fh = fip.contents if self.raw_fi else fip.contents.fh
         ret = self.operations('read', path, size, offset, fh)
-        if ret:
-            memmove(buf, create_string_buffer(ret), size)
-        return len(ret)
+        if not ret:
+            return 0
+        data = create_string_buffer(ret[:size], size)
+        memmove(buf, data, size)
+        return size
     
     def write(self, path, buf, size, offset, fip):
         data = string_at(buf, size)
@@ -339,27 +341,28 @@ class FUSE(object):
         return self.operations('fsync', path, datasync, fh)
     
     def setxattr(self, path, name, value, size, options, *args):
-        s = string_at(value, size)
-        return self.operations('setxattr', path, name, s, options, *args)
+        data = string_at(value, size)
+        return self.operations('setxattr', path, name, data, options, *args)
     
     def getxattr(self, path, name, value, size, *args):
-        buf = self.operations('getxattr', path, name, *args)
-        bufsize = len(buf)
+        ret = self.operations('getxattr', path, name, *args)
+        retsize = len(ret)
+        buf = create_string_buffer(ret, retsize)    # Does not add trailing 0
         if bool(value):
-            if bufsize > size:
+            if retsize > size:
                 return -ERANGE
-            memmove(value, buf, bufsize)
-        return bufsize
+            memmove(value, buf, retsize)
+        return retsize
     
     def listxattr(self, path, namebuf, size):
         ret = self.operations('listxattr', path)
-        buf = '\x00'.join(ret) + '\x00' if ret else ''
+        buf = create_string_buffer('\x00'.join(ret)) if ret else ''
         bufsize = len(buf)
         if bool(namebuf):
             if bufsize > size:
                 return -ERANGE
             memmove(namebuf, buf, bufsize)
-        return len(buf)
+        return bufsize
     
     def removexattr(self, path, name):
         return self.operations('removexattr', path, name)
