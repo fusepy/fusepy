@@ -5,6 +5,7 @@ from __future__ import with_statement
 from errno import EACCES
 from os.path import realpath
 from sys import argv, exit
+from threading import Lock
 
 import os
 
@@ -14,7 +15,8 @@ from fuse import FUSE, Operations, LoggingMixIn
 class Loopback(LoggingMixIn, Operations):    
     def __init__(self, root):
         self.root = realpath(root)
-        
+        self.rwlock = Lock()
+    
     def __call__(self, op, path, *args):
         return LoggingMixIn.__call__(self, op, self.root + path, *args)
     
@@ -50,8 +52,9 @@ class Loopback(LoggingMixIn, Operations):
     open = os.open
         
     def read(self, path, size, offset, fh):
-        os.lseek(fh, offset, 0)
-        return os.read(fh, size)
+        with self.rwlock:
+            os.lseek(fh, offset, 0)
+            return os.read(fh, size)
     
     def readdir(self, path, fh):
         return ['.', '..'] + os.listdir(path)
@@ -83,8 +86,9 @@ class Loopback(LoggingMixIn, Operations):
     utimens = os.utime
     
     def write(self, path, data, offset, fh):
-        os.lseek(fh, offset, 0)
-        return os.write(fh, data)
+        with self.rwlock:
+            os.lseek(fh, offset, 0)
+            return os.write(fh, data)
     
 
 if __name__ == "__main__":
