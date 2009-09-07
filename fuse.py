@@ -181,7 +181,7 @@ class fuse_operations(Structure):
             c_char_p, POINTER(c_stat), c_off_t), c_off_t, POINTER(fuse_file_info))),
         ('releasedir', CFUNCTYPE(c_int, c_char_p, POINTER(fuse_file_info))),
         ('fsyncdir', CFUNCTYPE(c_int, c_char_p, c_int, POINTER(fuse_file_info))),
-        ('init', c_voidp),      # Use __init__
+        ('init', CFUNCTYPE(c_voidp, c_voidp)),
         ('destroy', c_voidp),   # Use __del__
         ('access', CFUNCTYPE(c_int, c_char_p, c_int)),
         ('create', CFUNCTYPE(c_int, c_char_p, c_mode_t, POINTER(fuse_file_info))),
@@ -400,7 +400,10 @@ class FUSE(object):
     def fsyncdir(self, path, datasync, fip):
         # Ignore raw_fi
         return self.operations('fsyncdir', path, datasync, fip.contents.fh)
-        
+    
+    def init(self, conn):
+        return self.operations('init', '/')
+    
     def access(self, path, amode):
         return self.operations('access', path, amode)
     
@@ -495,6 +498,11 @@ class Operations(object):
     
     def getxattr(self, path, name, position=0):
         raise OSError(ENOTSUP, '')
+    
+    def init(self, path):
+        """Called on filesystem initialization. Path is always /
+           Use it instead of __init__ if you start threads on initialization."""
+        pass
     
     def link(self, target, source):
         raise OSError(EROFS, '')
