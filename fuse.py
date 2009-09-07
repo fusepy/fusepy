@@ -441,7 +441,7 @@ class FUSE(object):
         return self.operations('bmap', path, blocksize, idx)
 
 
-class Operations:
+class Operations(object):
     """This class should be subclassed and passed as an argument to FUSE on
        initialization. All operations should raise an OSError exception on
        error.

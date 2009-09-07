@@ -18,7 +18,7 @@ class Loopback(LoggingMixIn, Operations):
         self.rwlock = Lock()
     
     def __call__(self, op, path, *args):
-        return LoggingMixIn.__call__(self, op, self.root + path, *args)
+        return super(Loopback, self).__call__(op, self.root + path, *args)
     
     def access(self, path, mode):
         if not os.access(path, mode):
