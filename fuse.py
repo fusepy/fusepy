@@ -16,9 +16,10 @@ from __future__ import division
 
 from ctypes import *
 from ctypes.util import find_library
-from errno import EFAULT, ERANGE
+from errno import *
 from functools import partial
 from platform import machine, system
+from stat import S_IFDIR
 from traceback import print_exc
 
 
@@ -204,7 +205,11 @@ def set_st_attrs(st, attrs):
         elif hasattr(st, key):
             setattr(st, key, val)
 
-_libfuse = CDLL(find_library("fuse"))
+
+_libfuse_path = find_library('fuse')
+if not _libfuse_path:
+    raise EnvironmentError('Unable to find libfuse')
+_libfuse = CDLL(_libfuse_path)
 
 
 def fuse_get_context():
@@ -436,9 +441,6 @@ class FUSE(object):
         return self.operations('bmap', path, blocksize, idx)
 
 
-from errno import EACCES, ENOENT
-from stat import S_IFDIR
-
 class Operations:
     """This class should be subclassed and passed as an argument to FUSE on
        initialization. All operations should raise an OSError exception on
@@ -458,17 +460,17 @@ class Operations:
     bmap = None
     
     def chmod(self, path, mode):
-        raise OSError(EACCES, '')
+        raise OSError(EROFS, '')
     
     def chown(self, path, uid, gid):
-        raise OSError(EACCES, '')
+        raise OSError(EROFS, '')
     
     def create(self, path, mode, fi=None):
         """When raw_fi is False (default case), fi is None and create should
            return a numerical file handle.
            When raw_fi is True the file handle should be set directly by create
            and return 0."""
-        raise OSError(EACCES, '')
+        raise OSError(EROFS, '')
         
     def flush(self, path, fh):
         return 0
@@ -495,7 +497,7 @@ class Operations:
         raise OSError(ENOTSUP, '')
     
     def link(self, target, source):
-        raise OSError(EACCES, '')
+        raise OSError(EROFS, '')
     
     def listxattr(self, path):
         return []
@@ -503,10 +505,10 @@ class Operations:
     lock = None
     
     def mkdir(self, path, mode):
-        raise OSError(EACCES, '')
+        raise OSError(EROFS, '')
     
     def mknod(self, path, mode, dev):
-        raise OSError(EACCES, '')
+        raise OSError(EROFS, '')
     
     def open(self, path, flags):
         """When raw_fi is False (default case), open should return a numerical
@@ -522,7 +524,7 @@ class Operations:
     
     def read(self, path, size, offset, fh):
         """Returns a string containing the data requested."""
-        raise OSError(EACCES, '')
+        raise OSError(ENOENT, '')
     
     def readdir(self, path, fh):
         """Can return either a list of names, or a list of (name, attrs, offset)
@@ -530,7 +532,7 @@ class Operations:
         return ['.', '..']
     
     def readlink(self, path):
-        raise OSError(EACCES, '')
+        raise OSError(ENOENT, '')
     
     def release(self, path, fh):
         return 0
@@ -542,10 +544,10 @@ class Operations:
         raise OSError(ENOTSUP, '')
     
     def rename(self, old, new):
-        raise OSError(EACCES, '')
+        raise OSError(EROFS, '')
     
     def rmdir(self, path):
-        raise OSError(EACCES, '')
+        raise OSError(EROFS, '')
     
     def setxattr(self, path, name, value, options, position=0):
         raise OSError(ENOTSUP, '')
@@ -557,20 +559,20 @@ class Operations:
         return {}
     
     def symlink(self, target, source):
-        raise OSError(EACCES, '')
+        raise OSError(EROFS, '')
     
     def truncate(self, path, length, fh=None):
-        raise OSError(EACCES, '')
+        raise OSError(EROFS, '')
     
     def unlink(self, path):
-        raise OSError(EACCES, '')
+        raise OSError(EROFS, '')
     
     def utimens(self, path, times=None):
         """Times is a (atime, mtime) tuple. If None use current time."""
         return 0
     
     def write(self, path, data, offset, fh):
-        raise OSError(EACCES, '')
+        raise OSError(EROFS, '')
 
 
 class LoggingMixIn:
