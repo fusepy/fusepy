@@ -194,7 +194,7 @@ class fuse_operations(Structure):
 
 
 def time_of_timespec(ts):
-    return ts.tv_sec + 1.0 * ts.tv_nsec / 10 ** 9
+    return ts.tv_sec + ts.tv_nsec / 10 ** 9
 
 def set_st_attrs(st, attrs):
     for key, val in attrs.items():
