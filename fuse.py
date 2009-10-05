@@ -210,12 +210,13 @@ _libfuse_path = find_library('fuse')
 if not _libfuse_path:
     raise EnvironmentError('Unable to find libfuse')
 _libfuse = CDLL(_libfuse_path)
+_libfuse.fuse_get_context.restype = POINTER(fuse_context)
 
 
 def fuse_get_context():
     """Returns a (uid, gid, pid) tuple"""
-    p = _libfuse.fuse_get_context()
-    ctx = cast(p, POINTER(fuse_context)).contents
+    ctxp = _libfuse.fuse_get_context()
+    ctx = ctxp.contents
     return ctx.uid, ctx.gid, ctx.pid
 
 
