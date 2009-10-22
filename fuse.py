@@ -182,7 +182,7 @@ class fuse_operations(Structure):
         ('releasedir', CFUNCTYPE(c_int, c_char_p, POINTER(fuse_file_info))),
         ('fsyncdir', CFUNCTYPE(c_int, c_char_p, c_int, POINTER(fuse_file_info))),
         ('init', CFUNCTYPE(c_voidp, c_voidp)),
-        ('destroy', c_voidp),   # Use __del__
+        ('destroy', CFUNCTYPE(c_voidp, c_voidp)),
         ('access', CFUNCTYPE(c_int, c_char_p, c_int)),
         ('create', CFUNCTYPE(c_int, c_char_p, c_mode_t, POINTER(fuse_file_info))),
         ('ftruncate', CFUNCTYPE(c_int, c_char_p, c_off_t, POINTER(fuse_file_info))),
@@ -405,6 +405,9 @@ class FUSE(object):
     def init(self, conn):
         return self.operations('init', '/')
     
+    def destroy(self, private_data):
+        return self.operations('destroy', '/')
+    
     def access(self, path, amode):
         return self.operations('access', path, amode)
     
@@ -475,7 +478,11 @@ class Operations(object):
            When raw_fi is True the file handle should be set directly by create
            and return 0."""
         raise OSError(EROFS, '')
-        
+    
+    def destroy(self, path):
+        """Called on filesystem destruction. Path is always /"""
+        pass
+    
     def flush(self, path, fh):
         return 0
     
