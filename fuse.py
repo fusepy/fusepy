@@ -76,7 +76,40 @@ elif _system == 'Linux':
     getxattr_t = CFUNCTYPE(c_int, c_char_p, c_char_p, POINTER(c_byte), c_size_t)
     
     _machine = machine()
-    if _machine == 'i686':
+    if _machine == 'x86_64':
+        c_stat._fields_ = [
+            ('st_dev', c_dev_t),
+            ('st_ino', c_ulong),
+            ('st_nlink', c_ulong),
+            ('st_mode', c_mode_t),
+            ('st_uid', c_uid_t),
+            ('st_gid', c_gid_t),
+            ('__pad0', c_int),
+            ('st_rdev', c_dev_t),
+            ('st_size', c_off_t),
+            ('st_blksize', c_long),
+            ('st_blocks', c_long),
+            ('st_atimespec', c_timespec),
+            ('st_mtimespec', c_timespec),
+            ('st_ctimespec', c_timespec)]
+    elif _machine == 'ppc':
+        c_stat._fields_ = [
+            ('st_dev', c_dev_t),
+            ('st_ino', c_ulonglong),
+            ('st_mode', c_mode_t),
+            ('st_nlink', c_uint),
+            ('st_uid', c_uid_t),
+            ('st_gid', c_gid_t),
+            ('st_rdev', c_dev_t),
+            ('__pad2', c_ushort),
+            ('st_size', c_off_t),
+            ('st_blksize', c_long),
+            ('st_blocks', c_longlong),
+            ('st_atimespec', c_timespec),
+            ('st_mtimespec', c_timespec),
+            ('st_ctimespec', c_timespec)]
+    else:
+        # i686, use as fallback for everything else
         c_stat._fields_ = [
             ('st_dev', c_dev_t),
             ('__pad1', c_ushort),
@@ -94,24 +127,6 @@ elif _system == 'Linux':
             ('st_mtimespec', c_timespec),
             ('st_ctimespec', c_timespec),
             ('st_ino', c_ulonglong)]
-    elif machine() == 'x86_64':
-        c_stat._fields_ = [
-            ('st_dev', c_dev_t),
-            ('st_ino', c_ulong),
-            ('st_nlink', c_ulong),
-            ('st_mode', c_mode_t),
-            ('st_uid', c_uid_t),
-            ('st_gid', c_gid_t),
-            ('__pad0', c_int),
-            ('st_rdev', c_dev_t),
-            ('st_size', c_off_t),
-            ('st_blksize', c_long),
-            ('st_blocks', c_long),
-            ('st_atimespec', c_timespec),
-            ('st_mtimespec', c_timespec),
-            ('st_ctimespec', c_timespec)]
-    else:
-        raise NotImplementedError('Linux %s is not supported.' % _machine)
 else:
     raise NotImplementedError('%s is not supported.' % _system)
 
