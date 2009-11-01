@@ -33,7 +33,7 @@ class c_stat(Structure):
     pass    # Platform dependent
 
 _system = system()
-if _system == 'Darwin':
+if _system in ('Darwin', 'FreeBSD'):
     _libiconv = CDLL(find_library("iconv"), RTLD_GLOBAL)     # libfuse dependency
     ENOTSUP = 45
     c_dev_t = c_int32
@@ -141,6 +141,23 @@ class c_statvfs(Structure):
         ('f_files', c_fsfilcnt_t),
         ('f_ffree', c_fsfilcnt_t),
         ('f_favail', c_fsfilcnt_t)]
+
+if _system == 'FreeBSD':
+    c_fsblkcnt_t = c_uint64
+    c_fsfilcnt_t = c_uint64
+    setxattr_t = CFUNCTYPE(c_int, c_char_p, c_char_p, POINTER(c_byte), c_size_t, c_int)
+    getxattr_t = CFUNCTYPE(c_int, c_char_p, c_char_p, POINTER(c_byte), c_size_t)
+    class c_statvfs(Structure):
+        _fields_ = [
+            ('f_bavail', c_fsblkcnt_t),
+            ('f_bfree', c_fsblkcnt_t),
+            ('f_blocks', c_fsblkcnt_t),
+            ('f_favail', c_fsfilcnt_t),
+            ('f_ffree', c_fsfilcnt_t),
+            ('f_files', c_fsfilcnt_t),
+            ('f_bsize', c_ulong),
+            ('f_flag', c_ulong),
+            ('f_frsize', c_ulong)]
 
 class fuse_file_info(Structure):
     _fields_ = [
