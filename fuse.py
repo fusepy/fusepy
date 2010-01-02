@@ -579,7 +579,7 @@ class Operations(object):
     
     def read(self, path, size, offset, fh):
         """Returns a string containing the data requested."""
-        raise OSError(ENOENT, '')
+        raise OSError(EIO, '')
     
     def readdir(self, path, fh):
         """Can return either a list of names, or a list of (name, attrs, offset)
