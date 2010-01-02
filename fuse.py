@@ -333,6 +333,11 @@ class FUSE(object):
         return self.operations('chmod', path, mode)
     
     def chown(self, path, uid, gid):
+        # Check if any of the arguments is a -1 that has overflowed
+        if c_uid_t(uid + 1).value == 0:
+            uid = -1
+        if c_gid_t(gid + 1).value == 0:
+            gid = -1
         return self.operations('chown', path, uid, gid)
     
     def truncate(self, path, length):
