@@ -283,9 +283,11 @@ class FUSE(object):
             if prototype != c_voidp and getattr(operations, name, None):
                 op = partial(self._wrapper_, getattr(self, name))
                 setattr(fuse_ops, name, prototype(op))
-        _libfuse.fuse_main_real(len(args), argv, pointer(fuse_ops),
-            sizeof(fuse_ops), None)
+        err = _libfuse.fuse_main_real(len(args), argv, pointer(fuse_ops),
+            sizeof(fuse_ops), None)            
         del self.operations     # Invoke the destructor
+        if err:
+            raise RuntimeError(err)
     
     def _wrapper_(self, func, *args, **kwargs):
         """Decorator for the methods that follow"""
