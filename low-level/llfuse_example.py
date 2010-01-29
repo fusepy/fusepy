@@ -1,3 +1,4 @@
+#!/usr/bin/env python
 '''
 $Id$
 
@@ -13,16 +14,18 @@ Redistribution and use in source and binary forms, with or without modification,
 THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 ''' 
 
+from __future__ import division, print_function, absolute_import
+
 import llfuse
 import errno
 import stat
-
+import sys
 
 class Operations(llfuse.Operations):
     '''A very simple example filesystem'''
     
     def __init__(self):      
-        super(XmpOperations, self).__init__()
+        super(Operations, self).__init__()
         self.entries = [
                    # name, attr
                    (b'.', { 'st_ino': 1,
@@ -31,12 +34,14 @@ class Operations(llfuse.Operations):
                   (b'..', { 'st_ino': 1,
                            'st_mode': stat.S_IFDIR | 0755,
                            'st_nlink': 2}),
-                  (b'file', { 'st_ino': 2, 'st_nlink': 1,
+                  (b'file1', { 'st_ino': 2, 'st_nlink': 1,
+                              'st_mode': stat.S_IFREG | 0644 }),
+                  (b'file2', { 'st_ino': 3, 'st_nlink': 1,
                               'st_mode': stat.S_IFREG | 0644 }) ]
         
         self.contents = { # Inode: Contents
                          2: b'Hello, World\n',
-                         3: b'Stupid file contents\n'
+                         3: b'Some more file contents\n'
         }
         
         self.by_inode = dict()
@@ -97,3 +102,14 @@ class Operations(llfuse.Operations):
 
 
 
+if __name__ == '__main__':
+    
+    if len(sys.argv) != 2:
+        raise SystemExit('Usage: %s <mountpoint>' % sys.argv[0])
+    
+    mountpoint = sys.argv[1]
+    operations = Operations()
+    
+    llfuse.init(operations, mountpoint, [ b"nonempty", b'fsname=llfuses_xmp' ])
+    llfuse.main()
+    
