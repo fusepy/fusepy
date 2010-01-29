@@ -1,5 +1,5 @@
 '''
-$Id: __init__.py 450 2010-01-10 01:42:14Z nikratio $
+$Id$
 
 Copyright (c) 2010, Nikolaus Rath <Nikolaus@rath.org>
 All rights reserved.
