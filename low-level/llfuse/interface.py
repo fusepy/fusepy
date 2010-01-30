@@ -50,16 +50,20 @@ The return value and any raised exceptions of `handle_exc` are ignored.
 
 from __future__ import division, print_function, absolute_import
 
-from . import ctypes_api as libfuse
-from ctypes import (c_char_p, sizeof, create_string_buffer, addressof, string_at,
-                    POINTER, c_char, cast)
+# Using .. as libfuse makes PyDev really unhappy.
+from . import ctypes_api
+libfuse = ctypes_api
+
+from ctypes import c_char_p, sizeof, create_string_buffer, addressof, string_at, POINTER, c_char, cast
 from functools import partial
-import logging
 import errno
+import logging
 import sys
+
 
 __all__ = [ 'FUSEError', 'ENOATTR', 'ENOTSUP', 'init', 'main', 'close',
             'fuse_version' ]
+
 
 # These should really be befined in the errno module, but
 # unfortunately they are missing
