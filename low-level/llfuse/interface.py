@@ -65,7 +65,7 @@ __all__ = [ 'FUSEError', 'ENOATTR', 'ENOTSUP', 'init', 'main', 'close',
             'fuse_version' ]
 
 
-# These should really be befined in the errno module, but
+# These should really be defined in the errno module, but
 # unfortunately they are missing
 ENOATTR = libfuse.ENOATTR
 ENOTSUP = libfuse.ENOTSUP
