@@ -62,7 +62,7 @@ import sys
 
 
 __all__ = [ 'FUSEError', 'ENOATTR', 'ENOTSUP', 'init', 'main', 'close',
-            'fuse_version' ]
+            'fuse_version', 'daemonize' ]
 
 
 # These should really be defined in the errno module, but
@@ -335,30 +335,25 @@ def make_fuse_args(args):
                                                       for x in args1])
     return fuse_args
 
-def main(single=False, foreground=False):
-    '''Daemonize and run FUSE main loop
-    
-    Automatically calls `close' after the main loop has terminated. If
-    the file system should be mounted again, `init` has to be called 
-    first.
-    '''
+def main(single=False):
+    '''Run FUSE main loop'''
 
     if not session:
         raise RuntimeError('Need to call init() before main()')
 
-    libfuse.fuse_daemonize(0 if not foreground else 1)
+    if single:
+        log.debug('Calling fuse_session_loop')
+        if libfuse.fuse_session_loop(session) != 0:
+            raise RuntimeError("fuse_session_loop() failed")
+    else:
+        log.debug('Calling fuse_session_loop_mt')
+        if libfuse.fuse_session_loop_mt(session) != 0:
+            raise RuntimeError("fuse_session_loop_mt() failed")
 
-    try:
-        if single:
-            log.debug('Calling fuse_session_loop')
-            if libfuse.fuse_session_loop(session) != 0:
-                raise RuntimeError("fuse_session_loop() failed")
-        else:
-            log.debug('Calling fuse_session_loop_mt')
-            if libfuse.fuse_session_loop_mt(session) != 0:
-                raise RuntimeError("fuse_session_loop_mt() failed")
-    finally:
-        close()
+
+def daemonize():
+    '''Daemonize the process.'''
+    libfuse.fuse_daemonize(0)
 
 def close():
     '''Unmount file system and clean up'''
