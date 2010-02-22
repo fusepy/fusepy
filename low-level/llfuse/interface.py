@@ -62,7 +62,7 @@ import sys
 
 
 __all__ = [ 'FUSEError', 'ENOATTR', 'ENOTSUP', 'init', 'main', 'close',
-            'fuse_version', 'daemonize' ]
+            'fuse_version' ]
 
 
 # These should really be defined in the errno module, but
