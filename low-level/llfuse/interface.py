@@ -350,11 +350,6 @@ def main(single=False):
         if libfuse.fuse_session_loop_mt(session) != 0:
             raise RuntimeError("fuse_session_loop_mt() failed")
 
-
-def daemonize():
-    '''Daemonize the process.'''
-    libfuse.fuse_daemonize(0)
-
 def close():
     '''Unmount file system and clean up'''
 

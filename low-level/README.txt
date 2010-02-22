@@ -13,3 +13,10 @@ Please keep in mind that it's probably not wise to ship this file
 with your application, because it has been generated for your
 system only.
 
+
+Note that the fuse_daemonize() function is deliberately not exported
+by this module. If you want to daemonize a Python process, you have to
+do so from within Python or you will get into trouble. See
+ - http://bugs.python.org/issue7931 
+ - http://www.python.org/dev/peps/pep-3143/
+ 
