@@ -68,7 +68,7 @@ class SFTP(Operations):
         return buf
 
     def readdir(self, path, fh):
-        return ['.', '..'] + self.sftp.listdir(path)
+        return ['.', '..'] + [name.encode('utf-8') for name in self.sftp.listdir(path)]
 
     def readlink(self, path):
         return self.sftp.readlink(path)
