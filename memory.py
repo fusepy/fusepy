@@ -6,7 +6,7 @@ from stat import S_IFDIR, S_IFLNK, S_IFREG
 from sys import argv, exit
 from time import time
 
-from fuse import FUSE, Operations, LoggingMixIn
+from fuse import FUSE, FuseOSError, Operations, LoggingMixIn
 
 
 class Memory(LoggingMixIn, Operations):
@@ -37,7 +37,7 @@ class Memory(LoggingMixIn, Operations):
     
     def getattr(self, path, fh=None):
         if path not in self.files:
-            raise OSError(ENOENT, '')
+            raise FuseOSError(ENOENT)
         st = self.files[path]
         return st
     

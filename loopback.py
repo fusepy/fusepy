@@ -9,7 +9,7 @@ from threading import Lock
 
 import os
 
-from fuse import FUSE, Operations, LoggingMixIn
+from fuse import FUSE, FuseOSError, Operations, LoggingMixIn
 
 
 class Loopback(LoggingMixIn, Operations):    
@@ -22,7 +22,7 @@ class Loopback(LoggingMixIn, Operations):
     
     def access(self, path, mode):
         if not os.access(path, mode):
-            raise OSError(EACCES, '')
+            raise FuseOSError(EACCES)
     
     chmod = os.chmod
     chown = os.chown

@@ -18,6 +18,7 @@ from ctypes import *
 from ctypes.util import find_library
 from errno import *
 from functools import partial
+from os import strerror
 from platform import machine, system
 from stat import S_IFDIR
 from traceback import print_exc
@@ -250,6 +251,11 @@ def fuse_get_context():
     ctxp = _libfuse.fuse_get_context()
     ctx = ctxp.contents
     return ctx.uid, ctx.gid, ctx.pid
+
+
+class FuseOSError(OSError):
+    def __init__(self, errno):
+        super(FuseOSError, self).__init__(errno, strerror(errno))
 
 
 class FUSE(object):
@@ -489,15 +495,15 @@ class FUSE(object):
 
 class Operations(object):
     """This class should be subclassed and passed as an argument to FUSE on
-       initialization. All operations should raise an OSError exception on
-       error.
+       initialization. All operations should raise a FuseOSError exception
+       on error.
        
        When in doubt of what an operation should do, check the FUSE header
        file or the corresponding system call man page."""
     
     def __call__(self, op, *args):
         if not hasattr(self, op):
-            raise OSError(EFAULT, '')
+            raise FuseOSError(EFAULT)
         return getattr(self, op)(*args)
         
     def access(self, path, amode):
@@ -506,17 +512,17 @@ class Operations(object):
     bmap = None
     
     def chmod(self, path, mode):
-        raise OSError(EROFS, '')
+        raise FuseOSError(EROFS)
     
     def chown(self, path, uid, gid):
-        raise OSError(EROFS, '')
+        raise FuseOSError(EROFS)
     
     def create(self, path, mode, fi=None):
         """When raw_fi is False (default case), fi is None and create should
            return a numerical file handle.
            When raw_fi is True the file handle should be set directly by create
            and return 0."""
-        raise OSError(EROFS, '')
+        raise FuseOSError(EROFS)
     
     def destroy(self, path):
         """Called on filesystem destruction. Path is always /"""
@@ -540,11 +546,11 @@ class Operations(object):
            while Linux counts only the subdirectories."""
         
         if path != '/':
-            raise OSError(ENOENT, '')
+            raise FuseOSError(ENOENT)
         return dict(st_mode=(S_IFDIR | 0755), st_nlink=2)
     
     def getxattr(self, path, name, position=0):
-        raise OSError(ENOTSUP, '')
+        raise FuseOSError(ENOTSUP)
     
     def init(self, path):
         """Called on filesystem initialization. Path is always /
@@ -552,7 +558,7 @@ class Operations(object):
         pass
     
     def link(self, target, source):
-        raise OSError(EROFS, '')
+        raise FuseOSError(EROFS)
     
     def listxattr(self, path):
         return []
@@ -560,10 +566,10 @@ class Operations(object):
     lock = None
     
     def mkdir(self, path, mode):
-        raise OSError(EROFS, '')
+        raise FuseOSError(EROFS)
     
     def mknod(self, path, mode, dev):
-        raise OSError(EROFS, '')
+        raise FuseOSError(EROFS)
     
     def open(self, path, flags):
         """When raw_fi is False (default case), open should return a numerical
@@ -579,7 +585,7 @@ class Operations(object):
     
     def read(self, path, size, offset, fh):
         """Returns a string containing the data requested."""
-        raise OSError(EIO, '')
+        raise FuseOSError(EIO)
     
     def readdir(self, path, fh):
         """Can return either a list of names, or a list of (name, attrs, offset)
@@ -587,7 +593,7 @@ class Operations(object):
         return ['.', '..']
     
     def readlink(self, path):
-        raise OSError(ENOENT, '')
+        raise FuseOSError(ENOENT)
     
     def release(self, path, fh):
         return 0
@@ -596,16 +602,16 @@ class Operations(object):
         return 0
     
     def removexattr(self, path, name):
-        raise OSError(ENOTSUP, '')
+        raise FuseOSError(ENOTSUP)
     
     def rename(self, old, new):
-        raise OSError(EROFS, '')
+        raise FuseOSError(EROFS)
     
     def rmdir(self, path):
-        raise OSError(EROFS, '')
+        raise FuseOSError(EROFS)
     
     def setxattr(self, path, name, value, options, position=0):
-        raise OSError(ENOTSUP, '')
+        raise FuseOSError(ENOTSUP)
     
     def statfs(self, path):
         """Returns a dictionary with keys identical to the statvfs C structure
@@ -614,26 +620,26 @@ class Operations(object):
         return {}
     
     def symlink(self, target, source):
-        raise OSError(EROFS, '')
+        raise FuseOSError(EROFS)
     
     def truncate(self, path, length, fh=None):
-        raise OSError(EROFS, '')
+        raise FuseOSError(EROFS)
     
     def unlink(self, path):
-        raise OSError(EROFS, '')
+        raise FuseOSError(EROFS)
     
     def utimens(self, path, times=None):
         """Times is a (atime, mtime) tuple. If None use current time."""
         return 0
     
     def write(self, path, data, offset, fh):
-        raise OSError(EROFS, '')
+        raise FuseOSError(EROFS)
 
 
 class LoggingMixIn:
     def __call__(self, op, path, *args):
         print '->', op, path, repr(args)
-        ret = '[Unknown Error]'
+        ret = '[Unhandled Exception]'
         try:
             ret = getattr(self, op)(path, *args)
             return ret

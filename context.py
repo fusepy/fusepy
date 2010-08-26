@@ -5,7 +5,7 @@ from stat import S_IFDIR, S_IFREG
 from sys import argv, exit
 from time import time
 
-from fuse import FUSE, Operations, LoggingMixIn, fuse_get_context
+from fuse import FUSE, FuseOSError, Operations, LoggingMixIn, fuse_get_context
 
 
 class Context(LoggingMixIn, Operations):
@@ -25,7 +25,7 @@ class Context(LoggingMixIn, Operations):
             size = len('%s\n' % pid)
             st = dict(st_mode=(S_IFREG | 0444), st_size=size)
         else:
-            raise OSError(ENOENT, '')
+            raise FuseOSError(ENOENT)
         st['st_ctime'] = st['st_mtime'] = st['st_atime'] = time()
         return st
         

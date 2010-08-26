@@ -27,7 +27,7 @@ class SFTP(Operations):
     
     def __call__(self, op, path, *args):
         print '->', op, path, args[0] if args else ''
-        ret = '[Unknown Error]'
+        ret = '[Unhandled Exception]'
         try:
             ret = getattr(self, op)(self.root + path, *args)
             return ret
