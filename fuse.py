@@ -1,9 +1,9 @@
 # Copyright (c) 2008 Giorgos Verigakis <verigak@gmail.com>
-# 
+#
 # Permission to use, copy, modify, and distribute this software for any
 # purpose with or without fee is hereby granted, provided that the above
 # copyright notice and this permission notice appear in all copies.
-# 
+#
 # THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES
 # WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
 # MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR
@@ -322,7 +322,7 @@ class FUSE(object):
                 op = partial(self._wrapper_, getattr(self, name))
                 setattr(fuse_ops, name, prototype(op))
         err = _libfuse.fuse_main_real(len(args), argv, pointer(fuse_ops),
-            sizeof(fuse_ops), None)            
+            sizeof(fuse_ops), None)
         del self.operations     # Invoke the destructor
         if err:
             raise RuntimeError(err)
@@ -537,7 +537,7 @@ class Operations(object):
         if not hasattr(self, op):
             raise FuseOSError(EFAULT)
         return getattr(self, op)(*args)
-        
+    
     def access(self, path, amode):
         return 0
     
@@ -594,7 +594,7 @@ class Operations(object):
     
     def listxattr(self, path):
         return []
-        
+    
     lock = None
     
     def mkdir(self, path, mode):
