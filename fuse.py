@@ -20,6 +20,7 @@ from errno import *
 from functools import partial
 from os import strerror
 from platform import machine, system
+from signal import signal, SIGINT, SIG_DFL
 from stat import S_IFDIR
 from traceback import print_exc
 
@@ -324,8 +325,14 @@ class FUSE(object):
             if prototype != c_voidp and getattr(operations, name, None):
                 op = partial(self._wrapper_, getattr(self, name))
                 setattr(fuse_ops, name, prototype(op))
+        
+        old_handler = signal(SIGINT, SIG_DFL)
+        
         err = _libfuse.fuse_main_real(len(args), argv, pointer(fuse_ops),
-            sizeof(fuse_ops), None)
+                                      sizeof(fuse_ops), None)
+        
+        signal(SIGINT, old_handler)
+        
         del self.operations     # Invoke the destructor
         if err:
             raise RuntimeError(err)
