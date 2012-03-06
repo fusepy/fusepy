@@ -24,6 +24,8 @@ from stat import S_IFDIR
 from traceback import print_exc
 
 
+__version__ = '1.1'
+
 _system = system()
 _machine = machine()
 
