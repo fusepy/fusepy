@@ -1,3 +1,5 @@
+__version__ = '1.2'
+
 import sys
 pyver = sys.version_info[0:2]
 if pyver <= (2, 4):
