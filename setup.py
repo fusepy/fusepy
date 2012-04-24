@@ -8,11 +8,15 @@ try:
 except ImportError:
     fixers = set()
 
+with open('README') as readme:
+    documentation = readme.read()
+
 setup(
     name = 'fusepy',
     version = '1.2',
 
     description = 'Simple ctypes bindings for FUSE',
+    long_description = documentation,
     author = 'Giorgos Verigakis',
     author_email = 'verigak@gmail.com',
     license = 'ISC',
@@ -25,4 +29,15 @@ setup(
         'lib2to3.fixes.fix_future',
         'lib2to3.fixes.fix_numliterals',
     ]),
+
+    classifiers = [
+        'Intended Audience :: Developers',
+        'License :: OSI Approved :: ISC License (ISCL)',
+        'Operating System :: MacOS',
+        'Operating System :: POSIX',
+        'Operating System :: Unix',
+        'Programming Language :: Python :: 2',
+        'Programming Language :: Python :: 3',
+        'Topic :: System :: Filesystems',
+    ]
 )
