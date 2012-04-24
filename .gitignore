@@ -1,0 +1,11 @@
+*.py[oc]
+*~
+*.swp
+/bin
+/include
+/lib
+/lib64
+/system
+/build
+/dist
+/fusepy.egg-info
