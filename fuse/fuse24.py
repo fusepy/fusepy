@@ -17,10 +17,26 @@ from __future__ import division
 from ctypes import *
 from ctypes.util import find_library
 from errno import *
+from os import strerror
 from platform import machine, system
+from signal import signal, SIGINT, SIG_DFL
 from stat import S_IFDIR
 from traceback import print_exc
 
+try:
+    from functools import partial
+except ImportError:
+    # http://docs.python.org/library/functools.html#functools.partial
+    def partial(func, *args, **keywords):
+        def newfunc(*fargs, **fkeywords):
+            newkeywords = keywords.copy()
+            newkeywords.update(fkeywords)
+            return func(*(args + fargs), **newkeywords)
+
+        newfunc.func = func
+        newfunc.args = args
+        newfunc.keywords = keywords
+        return newfunc
 
 class c_timespec(Structure):
     _fields_ = [('tv_sec', c_long), ('tv_nsec', c_long)]
@@ -32,8 +48,25 @@ class c_stat(Structure):
     pass    # Platform dependent
 
 _system = system()
-if _system in ('Darwin', 'FreeBSD'):
-    _libiconv = CDLL(find_library("iconv"), RTLD_GLOBAL)     # libfuse dependency
+_machine = machine()
+
+if _system == 'Darwin':
+    _libiconv = CDLL(find_library('iconv'), RTLD_GLOBAL) # libfuse dependency
+    _libfuse_path = (find_library('fuse4x') or find_library('osxfuse') or
+                     find_library('fuse'))
+else:
+    _libfuse_path = find_library('fuse')
+
+if not _libfuse_path:
+    raise EnvironmentError('Unable to find libfuse')
+else:
+    _libfuse = CDLL(_libfuse_path)
+
+if _system == 'Darwin' and hasattr(_libfuse, 'macfuse_version'):
+    _system = 'Darwin-MacFuse'
+
+
+if _system in ('Darwin', 'Darwin-MacFuse', 'FreeBSD'):
     ENOTSUP = 45
     c_dev_t = c_int32
     c_fsblkcnt_t = c_ulong
@@ -47,20 +80,41 @@ if _system in ('Darwin', 'FreeBSD'):
         c_size_t, c_int, c_uint32)
     getxattr_t = CFUNCTYPE(c_int, c_char_p, c_char_p, POINTER(c_byte),
         c_size_t, c_uint32)
-    c_stat._fields_ = [
-        ('st_dev', c_dev_t),
-        ('st_ino', c_uint32),
-        ('st_mode', c_mode_t),
-        ('st_nlink', c_uint16),
-        ('st_uid', c_uid_t),
-        ('st_gid', c_gid_t),
-        ('st_rdev', c_dev_t),
-        ('st_atimespec', c_timespec),
-        ('st_mtimespec', c_timespec),
-        ('st_ctimespec', c_timespec),
-        ('st_size', c_off_t),
-        ('st_blocks', c_int64),
-        ('st_blksize', c_int32)]
+    if _system == 'Darwin':
+        c_stat._fields_ = [
+            ('st_dev', c_dev_t),
+            ('st_mode', c_mode_t),
+            ('st_nlink', c_uint16),
+            ('st_ino', c_uint64),
+            ('st_uid', c_uid_t),
+            ('st_gid', c_gid_t),
+            ('st_rdev', c_dev_t),
+            ('st_atimespec', c_timespec),
+            ('st_mtimespec', c_timespec),
+            ('st_ctimespec', c_timespec),
+            ('st_birthtimespec', c_timespec),
+            ('st_size', c_off_t),
+            ('st_blocks', c_int64),
+            ('st_blksize', c_int32),
+            ('st_flags', c_int32),
+            ('st_gen', c_int32),
+            ('st_lspare', c_int32),
+            ('st_qspare', c_int64)]
+    else:
+        c_stat._fields_ = [
+            ('st_dev', c_dev_t),
+            ('st_ino', c_uint32),
+            ('st_mode', c_mode_t),
+            ('st_nlink', c_uint16),
+            ('st_uid', c_uid_t),
+            ('st_gid', c_gid_t),
+            ('st_rdev', c_dev_t),
+            ('st_atimespec', c_timespec),
+            ('st_mtimespec', c_timespec),
+            ('st_ctimespec', c_timespec),
+            ('st_size', c_off_t),
+            ('st_blocks', c_int64),
+            ('st_blksize', c_int32)]
 elif _system == 'Linux':
     ENOTSUP = 95
     c_dev_t = c_ulonglong
@@ -74,7 +128,6 @@ elif _system == 'Linux':
     setxattr_t = CFUNCTYPE(c_int, c_char_p, c_char_p, POINTER(c_byte), c_size_t, c_int)
     getxattr_t = CFUNCTYPE(c_int, c_char_p, c_char_p, POINTER(c_byte), c_size_t)
 
-    _machine = machine()
     if _machine == 'x86_64':
         c_stat._fields_ = [
             ('st_dev', c_dev_t),
@@ -178,6 +231,9 @@ class fuse_context(Structure):
         ('pid', c_pid_t),
         ('private_data', c_voidp)]
 
+_libfuse.fuse_get_context.restype = POINTER(fuse_context)
+
+
 class fuse_operations(Structure):
     _fields_ = [
         ('getattr', CFUNCTYPE(c_int, c_char_p, POINTER(c_stat))),
@@ -237,18 +293,16 @@ def set_st_attrs(st, attrs):
             setattr(st, key, val)
 
 
-_libfuse_path = find_library('fuse')
-if not _libfuse_path:
-    raise EnvironmentError('Unable to find libfuse')
-_libfuse = CDLL(_libfuse_path)
-_libfuse.fuse_get_context.restype = POINTER(fuse_context)
-
-
 def fuse_get_context():
     """Returns a (uid, gid, pid) tuple"""
     ctxp = _libfuse.fuse_get_context()
     ctx = ctxp.contents
     return ctx.uid, ctx.gid, ctx.pid
+
+
+class FuseOSError(OSError):
+    def __init__(self, errno):
+        super(FuseOSError, self).__init__(errno, strerror(errno))
 
 
 class FUSE(object):
@@ -272,32 +326,44 @@ class FUSE(object):
             args.append('-s')
         kwargs.setdefault('fsname', operations.__class__.__name__)
         args.append('-o')
-        args.append(','.join(val is True and key or '%s=%s' % (key, val)
-            for key, val in kwargs.items()))
+        args.append(','.join(self._normalize_fuse_options(**kwargs)))
         args.append(mountpoint)
         argv = (c_char_p * len(args))(*args)
 
         fuse_ops = fuse_operations()
         for name, prototype in fuse_operations._fields_:
             if prototype != c_voidp and getattr(operations, name, None):
-                op = self._create_wrapper_(getattr(self, name))
+                op = partial(self._wrapper_, getattr(self, name))
                 setattr(fuse_ops, name, prototype(op))
-        _libfuse.fuse_main_real(len(args), argv, pointer(fuse_ops),
-            sizeof(fuse_ops), None)
+
+        old_handler = signal(SIGINT, SIG_DFL)
+
+        err = _libfuse.fuse_main_real(len(args), argv, pointer(fuse_ops),
+                                      sizeof(fuse_ops), None)
+
+        signal(SIGINT, old_handler)
+
         del self.operations     # Invoke the destructor
+        if err:
+            raise RuntimeError(err)
 
     @staticmethod
-    def _create_wrapper_(func):
-        def _wrapper_(*args, **kwargs):
-            """Decorator for the methods that follow"""
-            try:
-                return func(*args, **kwargs) or 0
-            except OSError, e:
-                return -(e.errno or EFAULT)
-            except:
-                print_exc()
-                return -EFAULT
-        return _wrapper_
+    def _normalize_fuse_options(**kargs):
+        for key, value in kargs.items():
+            if isinstance(value, bool):
+                if value is True: yield key
+            else:
+                yield '%s=%s' % (key, value)
+
+    def _wrapper_(self, func, *args, **kwargs):
+        """Decorator for the methods that follow"""
+        try:
+            return func(*args, **kwargs) or 0
+        except OSError, e:
+            return -(e.errno or EFAULT)
+        except:
+            print_exc()
+            return -EFAULT
 
     def getattr(self, path, buf):
         return self.fgetattr(path, buf, None)
@@ -333,6 +399,11 @@ class FUSE(object):
         return self.operations('chmod', path, mode)
 
     def chown(self, path, uid, gid):
+        # Check if any of the arguments is a -1 that has overflowed
+        if c_uid_t(uid + 1).value == 0:
+            uid = -1
+        if c_gid_t(gid + 1).value == 0:
+            gid = -1
         return self.operations('chown', path, uid, gid)
 
     def truncate(self, path, length):
@@ -351,19 +422,22 @@ class FUSE(object):
           fh = fip.contents
         else:
           fh = fip.contents.fh
+
         ret = self.operations('read', path, size, offset, fh)
-        if not ret:
-            return 0
+        if not ret: return 0
+
         data = create_string_buffer(ret[:size], size)
         memmove(buf, data, size)
         return size
 
     def write(self, path, buf, size, offset, fip):
         data = string_at(buf, size)
+
         if self.raw_fi:
             fh = fip.contents
         else:
             fh = fip.contents.fh
+
         return self.operations('write', path, data, offset, fh)
 
     def statfs(self, path, buf):
@@ -372,6 +446,7 @@ class FUSE(object):
         for key, val in attrs.items():
             if hasattr(stv, key):
                 setattr(stv, key, val)
+
         return 0
 
     def flush(self, path, fip):
@@ -379,6 +454,7 @@ class FUSE(object):
             fh = fip.contents
         else:
             fh = fip.contents.fh
+
         return self.operations('flush', path, fh)
 
     def release(self, path, fip):
@@ -386,6 +462,7 @@ class FUSE(object):
           fh = fip.contents
         else:
           fh = fip.contents.fh
+
         return self.operations('release', path, fh)
 
     def fsync(self, path, datasync, fip):
@@ -393,6 +470,7 @@ class FUSE(object):
             fh = fip.contents
         else:
             fh = fip.contents.fh
+
         return self.operations('fsync', path, datasync, fh)
 
     def setxattr(self, path, name, value, size, options, *args):
@@ -403,23 +481,28 @@ class FUSE(object):
         ret = self.operations('getxattr', path, name, *args)
         retsize = len(ret)
         buf = create_string_buffer(ret, retsize)    # Does not add trailing 0
-        if bool(value):
-            if retsize > size:
-                return -ERANGE
+
+        if value:
+            if retsize > size: return -ERANGE
+
             memmove(value, buf, retsize)
+
         return retsize
 
     def listxattr(self, path, namebuf, size):
         ret = self.operations('listxattr', path)
+
         if ret:
           buf = create_string_buffer('\x00'.join(ret))
         else:
           buf = ''
+
         bufsize = len(buf)
-        if bool(namebuf):
-            if bufsize > size:
-                return -ERANGE
+        if namebuf:
+            if bufsize > size: return -ERANGE
+
             memmove(namebuf, buf, bufsize)
+
         return bufsize
 
     def removexattr(self, path, name):
@@ -476,10 +559,12 @@ class FUSE(object):
             fh = fip.contents
         else:
             fh = fip.contents.fh
+
         return self.operations('truncate', path, length, fh)
 
     def fgetattr(self, path, buf, fip):
         memset(buf, 0, sizeof(c_stat))
+
         st = buf.contents
         if not fip:
             fh = fip
@@ -487,6 +572,7 @@ class FUSE(object):
             fh = fip.contents
         else:
             fh = fip.contents.fh
+
         attrs = self.operations('getattr', path, fh)
         set_st_attrs(st, attrs)
         return 0
@@ -496,6 +582,7 @@ class FUSE(object):
             fh = fip.contents
         else:
             fh = fip.contents.fh
+
         return self.operations('lock', path, fh, cmd, lock)
 
     def utimens(self, path, buf):
@@ -505,6 +592,7 @@ class FUSE(object):
             times = (atime, mtime)
         else:
             times = None
+
         return self.operations('utimens', path, times)
 
     def bmap(self, path, blocksize, idx):
@@ -513,15 +601,15 @@ class FUSE(object):
 
 class Operations(object):
     """This class should be subclassed and passed as an argument to FUSE on
-       initialization. All operations should raise an OSError exception on
-       error.
+       initialization. All operations should raise a FuseOSError exception
+       on error.
 
        When in doubt of what an operation should do, check the FUSE header
        file or the corresponding system call man page."""
 
     def __call__(self, op, *args):
         if not hasattr(self, op):
-            raise OSError(EFAULT, '')
+            raise FuseOSError(EFAULT)
         return getattr(self, op)(*args)
 
     def access(self, path, amode):
@@ -530,17 +618,17 @@ class Operations(object):
     bmap = None
 
     def chmod(self, path, mode):
-        raise OSError(EROFS, '')
+        raise FuseOSError(EROFS)
 
     def chown(self, path, uid, gid):
-        raise OSError(EROFS, '')
+        raise FuseOSError(EROFS)
 
     def create(self, path, mode, fi=None):
         """When raw_fi is False (default case), fi is None and create should
            return a numerical file handle.
            When raw_fi is True the file handle should be set directly by create
            and return 0."""
-        raise OSError(EROFS, '')
+        raise FuseOSError(EROFS)
 
     def destroy(self, path):
         """Called on filesystem destruction. Path is always /"""
@@ -564,11 +652,11 @@ class Operations(object):
            while Linux counts only the subdirectories."""
 
         if path != '/':
-            raise OSError(ENOENT, '')
+            raise FuseOSError(ENOENT)
         return dict(st_mode=(S_IFDIR | 0755), st_nlink=2)
 
     def getxattr(self, path, name, position=0):
-        raise OSError(ENOTSUP, '')
+        raise FuseOSError(ENOTSUP)
 
     def init(self, path):
         """Called on filesystem initialization. Path is always /
@@ -576,7 +664,7 @@ class Operations(object):
         pass
 
     def link(self, target, source):
-        raise OSError(EROFS, '')
+        raise FuseOSError(EROFS)
 
     def listxattr(self, path):
         return []
@@ -584,10 +672,10 @@ class Operations(object):
     lock = None
 
     def mkdir(self, path, mode):
-        raise OSError(EROFS, '')
+        raise FuseOSError(EROFS)
 
     def mknod(self, path, mode, dev):
-        raise OSError(EROFS, '')
+        raise FuseOSError(EROFS)
 
     def open(self, path, flags):
         """When raw_fi is False (default case), open should return a numerical
@@ -603,7 +691,7 @@ class Operations(object):
 
     def read(self, path, size, offset, fh):
         """Returns a string containing the data requested."""
-        raise OSError(ENOENT, '')
+        raise FuseOSError(EIO)
 
     def readdir(self, path, fh):
         """Can return either a list of names, or a list of (name, attrs, offset)
@@ -611,7 +699,7 @@ class Operations(object):
         return ['.', '..']
 
     def readlink(self, path):
-        raise OSError(ENOENT, '')
+        raise FuseOSError(ENOENT)
 
     def release(self, path, fh):
         return 0
@@ -620,16 +708,16 @@ class Operations(object):
         return 0
 
     def removexattr(self, path, name):
-        raise OSError(ENOTSUP, '')
+        raise FuseOSError(ENOTSUP)
 
     def rename(self, old, new):
-        raise OSError(EROFS, '')
+        raise FuseOSError(EROFS)
 
     def rmdir(self, path):
-        raise OSError(EROFS, '')
+        raise FuseOSError(EROFS)
 
     def setxattr(self, path, name, value, options, position=0):
-        raise OSError(ENOTSUP, '')
+        raise FuseOSError(ENOTSUP)
 
     def statfs(self, path):
         """Returns a dictionary with keys identical to the statvfs C structure
@@ -638,32 +726,31 @@ class Operations(object):
         return {}
 
     def symlink(self, target, source):
-        raise OSError(EROFS, '')
+        raise FuseOSError(EROFS)
 
     def truncate(self, path, length, fh=None):
-        raise OSError(EROFS, '')
+        raise FuseOSError(EROFS)
 
     def unlink(self, path):
-        raise OSError(EROFS, '')
+        raise FuseOSError(EROFS)
 
     def utimens(self, path, times=None):
         """Times is a (atime, mtime) tuple. If None use current time."""
         return 0
 
     def write(self, path, data, offset, fh):
-        raise OSError(EROFS, '')
+        raise FuseOSError(EROFS)
 
 
 class LoggingMixIn:
     def __call__(self, op, path, *args):
         print '->', op, path, repr(args)
-        ret = '[Unknown Error]'
+        ret = '[Unhandled Exception]'
         try:
-            try:
-                ret = getattr(self, op)(path, *args)
-                return ret
-            except OSError, e:
-                ret = str(e)
-                raise
+            ret = getattr(self, op)(path, *args)
+            return ret
+        except OSError, e:
+            ret = str(e)
+            raise
         finally:
             print '<-', op, repr(ret)

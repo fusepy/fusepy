@@ -17,32 +17,26 @@ from __future__ import division
 from ctypes import *
 from ctypes.util import find_library
 from errno import *
-from functools import partial
 from os import strerror
 from platform import machine, system
 from signal import signal, SIGINT, SIG_DFL
 from stat import S_IFDIR
 from traceback import print_exc
 
+try:
+    from functools import partial
+except ImportError:
+    # http://docs.python.org/library/functools.html#functools.partial
+    def partial(func, *args, **keywords):
+        def newfunc(*fargs, **fkeywords):
+            newkeywords = keywords.copy()
+            newkeywords.update(fkeywords)
+            return func(*(args + fargs), **newkeywords)
 
-_system = system()
-_machine = machine()
-
-if _system == 'Darwin':
-    _libfuse_path = find_library('fuse4x') or find_library('osxfuse') or \
-                    find_library('fuse')
-else:
-    _libfuse_path = find_library('fuse')
-if not _libfuse_path:
-    raise EnvironmentError('Unable to find libfuse')
-
-if _system == 'Darwin':
-    _libiconv = CDLL(find_library('iconv'), RTLD_GLOBAL) # libfuse dependency
-_libfuse = CDLL(_libfuse_path)
-
-if _system == 'Darwin' and hasattr(_libfuse, 'macfuse_version'):
-    _system = 'Darwin-MacFuse'
-
+        newfunc.func = func
+        newfunc.args = args
+        newfunc.keywords = keywords
+        return newfunc
 
 class c_timespec(Structure):
     _fields_ = [('tv_sec', c_long), ('tv_nsec', c_long)]
@@ -52,6 +46,25 @@ class c_utimbuf(Structure):
 
 class c_stat(Structure):
     pass    # Platform dependent
+
+_system = system()
+_machine = machine()
+
+if _system == 'Darwin':
+    _libiconv = CDLL(find_library('iconv'), RTLD_GLOBAL) # libfuse dependency
+    _libfuse_path = (find_library('fuse4x') or find_library('osxfuse') or
+                     find_library('fuse'))
+else:
+    _libfuse_path = find_library('fuse')
+
+if not _libfuse_path:
+    raise EnvironmentError('Unable to find libfuse')
+else:
+    _libfuse = CDLL(_libfuse_path)
+
+if _system == 'Darwin' and hasattr(_libfuse, 'macfuse_version'):
+    _system = 'Darwin-MacFuse'
+
 
 
 if _system in ('Darwin', 'Darwin-MacFuse', 'FreeBSD'):
@@ -221,6 +234,7 @@ class fuse_context(Structure):
 
 _libfuse.fuse_get_context.restype = POINTER(fuse_context)
 
+
 class fuse_operations(Structure):
     _fields_ = [
         ('getattr', CFUNCTYPE(c_int, c_char_p, POINTER(c_stat))),
@@ -313,8 +327,7 @@ class FUSE(object):
             args.append('-s')
         kwargs.setdefault('fsname', operations.__class__.__name__)
         args.append('-o')
-        args.append(','.join(key if val == True else '%s=%s' % (key, val)
-            for key, val in kwargs.items()))
+        args.append(','.join(self._normalize_fuse_options(**kwargs)))
         args.append(mountpoint)
         argv = (c_char_p * len(args))(*args)
 
@@ -334,6 +347,14 @@ class FUSE(object):
         del self.operations     # Invoke the destructor
         if err:
             raise RuntimeError(err)
+
+    @staticmethod
+    def _normalize_fuse_options(**kargs):
+        for key, value in kargs.items():
+            if isinstance(value, bool):
+                if value is True: yield key
+            else:
+                yield '%s=%s' % (key, value)
 
     def _wrapper_(self, func, *args, **kwargs):
         """Decorator for the methods that follow"""
@@ -398,17 +419,26 @@ class FUSE(object):
             return 0
 
     def read(self, path, buf, size, offset, fip):
-        fh = fip.contents if self.raw_fi else fip.contents.fh
+        if self.raw_fi:
+          fh = fip.contents
+        else:
+          fh = fip.contents.fh
+
         ret = self.operations('read', path, size, offset, fh)
-        if not ret:
-            return 0
+        if not ret: return 0
+
         data = create_string_buffer(ret[:size], size)
         memmove(buf, data, size)
         return size
 
     def write(self, path, buf, size, offset, fip):
         data = string_at(buf, size)
-        fh = fip.contents if self.raw_fi else fip.contents.fh
+
+        if self.raw_fi:
+            fh = fip.contents
+        else:
+            fh = fip.contents.fh
+
         return self.operations('write', path, data, offset, fh)
 
     def statfs(self, path, buf):
@@ -417,18 +447,31 @@ class FUSE(object):
         for key, val in attrs.items():
             if hasattr(stv, key):
                 setattr(stv, key, val)
+
         return 0
 
     def flush(self, path, fip):
-        fh = fip.contents if self.raw_fi else fip.contents.fh
+        if self.raw_fi:
+            fh = fip.contents
+        else:
+            fh = fip.contents.fh
+
         return self.operations('flush', path, fh)
 
     def release(self, path, fip):
-        fh = fip.contents if self.raw_fi else fip.contents.fh
+        if self.raw_fi:
+          fh = fip.contents
+        else:
+          fh = fip.contents.fh
+
         return self.operations('release', path, fh)
 
     def fsync(self, path, datasync, fip):
-        fh = fip.contents if self.raw_fi else fip.contents.fh
+        if self.raw_fi:
+            fh = fip.contents
+        else:
+            fh = fip.contents.fh
+
         return self.operations('fsync', path, datasync, fh)
 
     def setxattr(self, path, name, value, size, options, *args):
@@ -439,20 +482,28 @@ class FUSE(object):
         ret = self.operations('getxattr', path, name, *args)
         retsize = len(ret)
         buf = create_string_buffer(ret, retsize)    # Does not add trailing 0
-        if bool(value):
-            if retsize > size:
-                return -ERANGE
+
+        if value:
+            if retsize > size: return -ERANGE
+
             memmove(value, buf, retsize)
+
         return retsize
 
     def listxattr(self, path, namebuf, size):
         ret = self.operations('listxattr', path)
-        buf = create_string_buffer('\x00'.join(ret)) if ret else ''
+
+        if ret:
+          buf = create_string_buffer('\x00'.join(ret))
+        else:
+          buf = ''
+
         bufsize = len(buf)
-        if bool(namebuf):
-            if bufsize > size:
-                return -ERANGE
+        if namebuf:
+            if bufsize > size: return -ERANGE
+
             memmove(namebuf, buf, bufsize)
+
         return bufsize
 
     def removexattr(self, path, name):
@@ -505,19 +556,34 @@ class FUSE(object):
             return 0
 
     def ftruncate(self, path, length, fip):
-        fh = fip.contents if self.raw_fi else fip.contents.fh
+        if self.raw_fi:
+            fh = fip.contents
+        else:
+            fh = fip.contents.fh
+
         return self.operations('truncate', path, length, fh)
 
     def fgetattr(self, path, buf, fip):
         memset(buf, 0, sizeof(c_stat))
+
         st = buf.contents
-        fh = fip and (fip.contents if self.raw_fi else fip.contents.fh)
+        if not fip:
+            fh = fip
+        elif self.raw_fi:
+            fh = fip.contents
+        else:
+            fh = fip.contents.fh
+
         attrs = self.operations('getattr', path, fh)
         set_st_attrs(st, attrs)
         return 0
 
     def lock(self, path, fip, cmd, lock):
-        fh = fip.contents if self.raw_fi else fip.contents.fh
+        if self.raw_fi:
+            fh = fip.contents
+        else:
+            fh = fip.contents.fh
+
         return self.operations('lock', path, fh, cmd, lock)
 
     def utimens(self, path, buf):
@@ -527,6 +593,7 @@ class FUSE(object):
             times = (atime, mtime)
         else:
             times = None
+
         return self.operations('utimens', path, times)
 
     def bmap(self, path, blocksize, idx):
