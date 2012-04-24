@@ -130,8 +130,11 @@ elif _system == 'Linux':
     c_off_t = c_longlong
     c_pid_t = c_int
     c_uid_t = c_uint
-    setxattr_t = CFUNCTYPE(c_int, c_char_p, c_char_p, POINTER(c_byte), c_size_t, c_int)
-    getxattr_t = CFUNCTYPE(c_int, c_char_p, c_char_p, POINTER(c_byte), c_size_t)
+    setxattr_t = CFUNCTYPE(c_int, c_char_p, c_char_p, POINTER(c_byte),
+                           c_size_t, c_int)
+
+    getxattr_t = CFUNCTYPE(c_int, c_char_p, c_char_p, POINTER(c_byte),
+                           c_size_t)
 
     if _machine == 'x86_64':
         c_stat._fields_ = [
@@ -202,8 +205,12 @@ class c_statvfs(Structure):
 if _system == 'FreeBSD':
     c_fsblkcnt_t = c_uint64
     c_fsfilcnt_t = c_uint64
-    setxattr_t = CFUNCTYPE(c_int, c_char_p, c_char_p, POINTER(c_byte), c_size_t, c_int)
-    getxattr_t = CFUNCTYPE(c_int, c_char_p, c_char_p, POINTER(c_byte), c_size_t)
+    setxattr_t = CFUNCTYPE(c_int, c_char_p, c_char_p, POINTER(c_byte),
+                           c_size_t, c_int)
+
+    getxattr_t = CFUNCTYPE(c_int, c_char_p, c_char_p, POINTER(c_byte),
+                           c_size_t)
+
     class c_statvfs(Structure):
         _fields_ = [
             ('f_bavail', c_fsblkcnt_t),
@@ -256,10 +263,13 @@ class fuse_operations(Structure):
         ('truncate', CFUNCTYPE(c_int, c_char_p, c_off_t)),
         ('utime', c_voidp),     # Deprecated, use utimens
         ('open', CFUNCTYPE(c_int, c_char_p, POINTER(fuse_file_info))),
-        ('read', CFUNCTYPE(c_int, c_char_p, POINTER(c_byte), c_size_t, c_off_t,
-            POINTER(fuse_file_info))),
-        ('write', CFUNCTYPE(c_int, c_char_p, POINTER(c_byte), c_size_t, c_off_t,
-            POINTER(fuse_file_info))),
+
+        ('read', CFUNCTYPE(c_int, c_char_p, POINTER(c_byte), c_size_t,
+                           c_off_t, POINTER(fuse_file_info))),
+
+        ('write', CFUNCTYPE(c_int, c_char_p, POINTER(c_byte), c_size_t,
+                            c_off_t, POINTER(fuse_file_info))),
+
         ('statfs', CFUNCTYPE(c_int, c_char_p, POINTER(c_statvfs))),
         ('flush', CFUNCTYPE(c_int, c_char_p, POINTER(fuse_file_info))),
         ('release', CFUNCTYPE(c_int, c_char_p, POINTER(fuse_file_info))),
@@ -269,20 +279,36 @@ class fuse_operations(Structure):
         ('listxattr', CFUNCTYPE(c_int, c_char_p, POINTER(c_byte), c_size_t)),
         ('removexattr', CFUNCTYPE(c_int, c_char_p, c_char_p)),
         ('opendir', CFUNCTYPE(c_int, c_char_p, POINTER(fuse_file_info))),
-        ('readdir', CFUNCTYPE(c_int, c_char_p, c_voidp, CFUNCTYPE(c_int, c_voidp,
-            c_char_p, POINTER(c_stat), c_off_t), c_off_t, POINTER(fuse_file_info))),
+
+        ('readdir', CFUNCTYPE(c_int, c_char_p, c_voidp,
+                              CFUNCTYPE(c_int, c_voidp, c_char_p,
+                                        POINTER(c_stat), c_off_t),
+                              c_off_t, POINTER(fuse_file_info))),
+
         ('releasedir', CFUNCTYPE(c_int, c_char_p, POINTER(fuse_file_info))),
-        ('fsyncdir', CFUNCTYPE(c_int, c_char_p, c_int, POINTER(fuse_file_info))),
+
+        ('fsyncdir', CFUNCTYPE(c_int, c_char_p, c_int,
+                               POINTER(fuse_file_info))),
+
         ('init', CFUNCTYPE(c_voidp, c_voidp)),
         ('destroy', CFUNCTYPE(c_voidp, c_voidp)),
         ('access', CFUNCTYPE(c_int, c_char_p, c_int)),
-        ('create', CFUNCTYPE(c_int, c_char_p, c_mode_t, POINTER(fuse_file_info))),
-        ('ftruncate', CFUNCTYPE(c_int, c_char_p, c_off_t, POINTER(fuse_file_info))),
+
+        ('create', CFUNCTYPE(c_int, c_char_p, c_mode_t,
+                             POINTER(fuse_file_info))),
+
+        ('ftruncate', CFUNCTYPE(c_int, c_char_p, c_off_t,
+                                POINTER(fuse_file_info))),
+
         ('fgetattr', CFUNCTYPE(c_int, c_char_p, POINTER(c_stat),
-            POINTER(fuse_file_info))),
-        ('lock', CFUNCTYPE(c_int, c_char_p, POINTER(fuse_file_info), c_int, c_voidp)),
+                               POINTER(fuse_file_info))),
+
+        ('lock', CFUNCTYPE(c_int, c_char_p, POINTER(fuse_file_info),
+                           c_int, c_voidp)),
+
         ('utimens', CFUNCTYPE(c_int, c_char_p, POINTER(c_utimbuf))),
-        ('bmap', CFUNCTYPE(c_int, c_char_p, c_size_t, POINTER(c_ulonglong)))]
+        ('bmap', CFUNCTYPE(c_int, c_char_p, c_size_t, POINTER(c_ulonglong))),
+    ]
 
 
 def time_of_timespec(ts):
@@ -664,8 +690,9 @@ class Operations(object):
     def create(self, path, mode, fi=None):
         """When raw_fi is False (default case), fi is None and create should
            return a numerical file handle.
-           When raw_fi is True the file handle should be set directly by create
-           and return 0."""
+
+           When raw_fi is True the file handle should be set directly by
+           create and return 0."""
         raise FuseOSError(EROFS)
 
     def destroy(self, path):
@@ -684,10 +711,13 @@ class Operations(object):
     def getattr(self, path, fh=None):
         """Returns a dictionary with keys identical to the stat C structure
            of stat(2).
+
            st_atime, st_mtime and st_ctime should be floats.
-           NOTE: There is an incombatibility between Linux and Mac OS X concerning
-           st_nlink of directories. Mac OS X counts all files inside the directory,
-           while Linux counts only the subdirectories."""
+
+           NOTE: There is an incombatibility between Linux and Mac OS X
+           concerning st_nlink of directories. Mac OS X counts all files
+           inside the directory, while Linux counts only the
+           subdirectories."""
 
         if path != '/':
             raise FuseOSError(ENOENT)
@@ -697,8 +727,10 @@ class Operations(object):
         raise FuseOSError(ENOTSUP)
 
     def init(self, path):
-        """Called on filesystem initialization. Path is always /
-           Use it instead of __init__ if you start threads on initialization."""
+        """Called on filesystem initialization. (Path is always /)
+
+           Use it instead of __init__ if you start threads on
+           initialization."""
         pass
 
     def link(self, target, source):
@@ -716,10 +748,12 @@ class Operations(object):
         raise FuseOSError(EROFS)
 
     def open(self, path, flags):
-        """When raw_fi is False (default case), open should return a numerical
-           file handle.
+        """When raw_fi is False (default case), open should return a
+           numerical file handle.
+
            When raw_fi is True the signature of open becomes:
                open(self, path, fi)
+
            and the file handle should be set directly."""
         return 0
 
@@ -732,8 +766,8 @@ class Operations(object):
         raise FuseOSError(EIO)
 
     def readdir(self, path, fh):
-        """Can return either a list of names, or a list of (name, attrs, offset)
-           tuples. attrs is a dict as in getattr."""
+        """Can return either a list of names, or a list of
+           (name, attrs, offset) tuples. attrs is a dict as in getattr."""
         return ['.', '..']
 
     def readlink(self, path):
@@ -758,9 +792,11 @@ class Operations(object):
         raise FuseOSError(ENOTSUP)
 
     def statfs(self, path):
-        """Returns a dictionary with keys identical to the statvfs C structure
-           of statvfs(3).
-           On Mac OS X f_bsize and f_frsize must be a power of 2 (minimum 512)."""
+        """Returns a dictionary with keys identical to the statvfs C
+           structure of statvfs(3).
+
+           On Mac OS X f_bsize and f_frsize must be a power of 2
+           (minimum 512)."""
         return {}
 
     def symlink(self, target, source):
