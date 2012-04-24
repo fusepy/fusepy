@@ -23,6 +23,8 @@ from signal import signal, SIGINT, SIG_DFL
 from stat import S_IFDIR
 from traceback import print_exc
 
+import logging
+
 try:
     from functools import partial
 except ImportError:
@@ -333,7 +335,7 @@ class FUSE(object):
         fuse_ops = fuse_operations()
         for name, prototype in fuse_operations._fields_:
             if prototype != c_voidp and getattr(operations, name, None):
-                op = partial(self._wrapper_, getattr(self, name))
+                op = partial(self._wrapper, getattr(self, name))
                 setattr(fuse_ops, name, prototype(op))
 
         old_handler = signal(SIGINT, SIG_DFL)
@@ -355,7 +357,8 @@ class FUSE(object):
             else:
                 yield '%s=%s' % (key, value)
 
-    def _wrapper_(self, func, *args, **kwargs):
+    @staticmethod
+    def _wrapper(func, *args, **kwargs):
         """Decorator for the methods that follow"""
         try:
             return func(*args, **kwargs) or 0
@@ -743,8 +746,10 @@ class Operations(object):
 
 
 class LoggingMixIn:
+    log = logging.getLogger('fuse.log-mixin')
+
     def __call__(self, op, path, *args):
-        print '->', op, path, repr(args)
+        self.log.debug('-> %s %s %s', op, path, repr(args))
         ret = '[Unhandled Exception]'
         try:
             ret = getattr(self, op)(path, *args)
@@ -753,4 +758,4 @@ class LoggingMixIn:
             ret = str(e)
             raise
         finally:
-            print '<-', op, repr(ret)
+            self.log.debug('<- %s %s', op, repr(ret))
