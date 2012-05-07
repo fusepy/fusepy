@@ -1,4 +1,5 @@
-# Copyright (c) 2008 Giorgos Verigakis <verigak@gmail.com>
+# Copyright (c) 2012 Terence Honles <terence@honles.com> (maintainer)
+# Copyright (c) 2008 Giorgos Verigakis <verigak@gmail.com> (author)
 #
 # Permission to use, copy, modify, and distribute this software for any
 # purpose with or without fee is hereby granted, provided that the above
@@ -40,7 +41,9 @@ except ImportError:
         newfunc.keywords = keywords
         return newfunc
 
-if not hasattr(__builtins__, 'basestring'):
+try:
+    basestring
+except NameError:
     basestring = str
 
 class c_timespec(Structure):
@@ -543,10 +546,9 @@ class FUSE(object):
         return retsize
 
     def listxattr(self, path, namebuf, size):
-        ret = '\x00'.join(self.operations('listxattr', path) or '') \
-                    .encode(self.encoding)
+        attrs = self.operations('listxattr', path.decode(self.encoding)) or ''
 
-        buf = create_string_buffer(ret)
+        buf = create_string_buffer('\x00'.join(attrs).encode(self.encoding))
         bufsize = len(buf)
         if namebuf:
             if bufsize > size: return -ERANGE
