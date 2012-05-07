@@ -5,44 +5,26 @@ from time import time
 
 from paramiko import SSHClient
 
-from fuse import FUSE, Operations
+from fuse import FUSE, Operations, LoggingMixIn
 
 
-class SFTP(Operations):
-    """A simple SFTP filesystem. Requires paramiko:
-            http://www.lag.net/paramiko/
-            
-       You need to be able to login to remote host without entering a password.
-    """
+class SFTP(LoggingMixIn, Operations):
+    '''
+    A simple SFTP filesystem. Requires paramiko: http://www.lag.net/paramiko/
+
+    You need to be able to login to remote host without entering a password.
+    '''
+
     def __init__(self, host, path='.'):
         self.client = SSHClient()
         self.client.load_system_host_keys()
         self.client.connect(host)
         self.sftp = self.client.open_sftp()
         self.root = path
-    
-    def __del__(self):
-        self.sftp.close()
-        self.client.close()
-    
-    def __call__(self, op, path, *args):
-        print '->', op, path, args[0] if args else ''
-        ret = '[Unhandled Exception]'
-        try:
-            ret = getattr(self, op)(self.root + path, *args)
-            return ret
-        except OSError, e:
-            ret = str(e)
-            raise
-        except IOError, e:
-            ret = str(e)
-            raise OSError(*e.args)
-        finally:
-            print '<-', op
-    
+
     def chmod(self, path, mode):
         return self.sftp.chmod(path, mode)
-    
+
     def chown(self, path, uid, gid):
         return self.sftp.chown(path, uid, gid)
 
@@ -51,6 +33,10 @@ class SFTP(Operations):
         f.chmod(mode)
         f.close()
         return 0
+
+    def destroy(self, path):
+        self.sftp.close()
+        self.client.close()
 
     def getattr(self, path, fh=None):
         st = self.sftp.lstat(path)
@@ -68,7 +54,8 @@ class SFTP(Operations):
         return buf
 
     def readdir(self, path, fh):
-        return ['.', '..'] + [name.encode('utf-8') for name in self.sftp.listdir(path)]
+        return ['.', '..'] + [name.encode('utf-8')
+                              for name in self.sftp.listdir(path)]
 
     def readlink(self, path):
         return self.sftp.readlink(path)
@@ -97,10 +84,11 @@ class SFTP(Operations):
         f.write(data)
         f.close()
         return len(data)
-    
 
-if __name__ == "__main__":
+
+if __name__ == '__main__':
     if len(argv) != 3:
-        print 'usage: %s <host> <mountpoint>' % argv[0]
+        print('usage: %s <host> <mountpoint>' % argv[0])
         exit(1)
+
     fuse = FUSE(SFTP(argv[1]), argv[2], foreground=True, nothreads=True)

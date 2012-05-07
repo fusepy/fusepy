@@ -13,14 +13,17 @@ with open('README') as readme:
 
 setup(
     name = 'fusepy',
-    version = '1.2',
+    version = '2.0',
 
     description = 'Simple ctypes bindings for FUSE',
     long_description = documentation,
     author = 'Giorgos Verigakis',
     author_email = 'verigak@gmail.com',
+    maintainer = 'Terence Honles',
+    maintainer_email = 'terence@honles.com',
     license = 'ISC',
     py_modules=['fuse'],
+    url = 'http://github.com/terencehonles/fusepy',
 
     use_2to3 = True,
     # only use the following fixers (everything else is already compatible)
