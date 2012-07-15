@@ -411,6 +411,9 @@ class FUSE(object):
 
     def readlink(self, path, buf, bufsize):
         ret = self.operations('readlink', path).encode(self.encoding)
+
+        # copies a string into the given buffer
+        # (null terminated and truncated if necessary)
         data = create_string_buffer(ret[:bufsize - 1])
         memmove(buf, data, len(data))
         return 0
@@ -475,9 +478,13 @@ class FUSE(object):
 
         if not ret: return 0
 
-        data = create_string_buffer(ret[:size], size)
-        memmove(buf, data, size)
-        return size
+        retsize = len(ret)
+        assert retsize <= size, \
+            'actual amount read %d greater than expected %d' % (retsize, size)
+
+        data = create_string_buffer(ret, retsize)
+        memmove(buf, ret, retsize)
+        return retsize
 
     def write(self, path, buf, size, offset, fip):
         data = string_at(buf, size)
@@ -536,26 +543,32 @@ class FUSE(object):
                   .encode(self.encoding)
 
         retsize = len(ret)
+        # allow size queries
+        if not value: return retsize
+
+        # do not truncate
+        if retsize > size: return -ERANGE
+
         buf = create_string_buffer(ret, retsize)    # Does not add trailing 0
-
-        if value:
-            if retsize > size: return -ERANGE
-
-            memmove(value, buf, retsize)
+        memmove(value, buf, retsize)
 
         return retsize
 
     def listxattr(self, path, namebuf, size):
         attrs = self.operations('listxattr', path.decode(self.encoding)) or ''
+        ret = '\x00'.join(attrs).encode(self.encoding) + '\x00'
 
-        buf = create_string_buffer('\x00'.join(attrs).encode(self.encoding))
-        bufsize = len(buf)
-        if namebuf:
-            if bufsize > size: return -ERANGE
+        retsize = len(ret)
+        # allow size queries
+        if not namebuf: return retsize
 
-            memmove(namebuf, buf, bufsize)
+        # do not truncate
+        if retsize > size: return -ERANGE
 
-        return bufsize
+        buf = create_string_buffer(ret, retsize)
+        memmove(namebuf, buf, retsize)
+
+        return retsize
 
     def removexattr(self, path, name):
         return self.operations('removexattr', path.decode(self.encoding),
