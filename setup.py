@@ -13,7 +13,7 @@ with open('README') as readme:
 
 setup(
     name = 'fusepy',
-    version = '2.0',
+    version = '2.0.1',
 
     description = 'Simple ctypes bindings for FUSE',
     long_description = documentation,
