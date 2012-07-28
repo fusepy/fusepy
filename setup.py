@@ -8,7 +8,7 @@ try:
 except ImportError:
     fixers = set()
 
-with open('README') as readme:
+with open('README.rst') as readme:
     documentation = readme.read()
 
 setup(
