@@ -410,7 +410,8 @@ class FUSE(object):
         return self.fgetattr(path, buf, None)
 
     def readlink(self, path, buf, bufsize):
-        ret = self.operations('readlink', path).encode(self.encoding)
+        ret = self.operations('readlink', path.decode(self.encoding)) \
+                  .encode(self.encoding)
 
         # copies a string into the given buffer
         # (null terminated and truncated if necessary)
@@ -532,15 +533,13 @@ class FUSE(object):
                                         fh)
 
     def setxattr(self, path, name, value, size, options, *args):
-        data = string_at(value, size)
         return self.operations('setxattr', path.decode(self.encoding),
                                name.decode(self.encoding),
-                               data.decode(self.encoding), options, *args)
+                               string_at(value, size), options, *args)
 
     def getxattr(self, path, name, value, size, *args):
         ret = self.operations('getxattr', path.decode(self.encoding),
-                                          name.decode(self.encoding), *args) \
-                  .encode(self.encoding)
+                                          name.decode(self.encoding), *args)
 
         retsize = len(ret)
         # allow size queries
