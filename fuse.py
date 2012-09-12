@@ -362,6 +362,8 @@ class FUSE(object):
             args.append('-d')
         if kwargs.pop('nothreads', False):
             args.append('-s')
+        if kwards.pop('readonly', False):
+	    args.append('-r')
         kwargs.setdefault('fsname', operations.__class__.__name__)
         args.append('-o')
         args.append(','.join(self._normalize_fuse_options(**kwargs)))
