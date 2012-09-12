@@ -362,7 +362,7 @@ class FUSE(object):
             args.append('-d')
         if kwargs.pop('nothreads', False):
             args.append('-s')
-        if kwards.pop('readonly', False):
+        if kwargs.pop('readonly', False):
 	    args.append('-r')
         kwargs.setdefault('fsname', operations.__class__.__name__)
         args.append('-o')
