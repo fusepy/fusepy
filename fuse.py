@@ -319,7 +319,7 @@ def time_of_timespec(ts):
 
 def set_st_attrs(st, attrs):
     for key, val in attrs.items():
-        if key in ('st_atime', 'st_mtime', 'st_ctime'):
+        if key in ('st_atime', 'st_mtime', 'st_ctime', 'st_birthtime'):
             timespec = getattr(st, key + 'spec')
             timespec.tv_sec = int(val)
             timespec.tv_nsec = int((val - timespec.tv_sec) * 10 ** 9)
