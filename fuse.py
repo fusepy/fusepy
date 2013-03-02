@@ -328,7 +328,8 @@ def set_st_attrs(st, attrs):
 
 
 def fuse_get_context():
-    """Returns a (uid, gid, pid) tuple"""
+    'Returns a (uid, gid, pid) tuple'
+
     ctxp = _libfuse.fuse_get_context()
     ctx = ctxp.contents
     return ctx.uid, ctx.gid, ctx.pid
@@ -340,28 +341,38 @@ class FuseOSError(OSError):
 
 
 class FUSE(object):
-    """This class is the lower level interface and should not be subclassed
-       under normal use. Its methods are called by fuse.
-       Assumes API version 2.6 or later."""
+    '''
+    This class is the lower level interface and should not be subclassed under
+    normal use. Its methods are called by fuse.
+
+    Assumes API version 2.6 or later.
+    '''
+
+    OPTIONS = (
+        ('foreground', '-f'),
+        ('debug', '-d'),
+        ('nothreads', '-s'),
+    )
 
     def __init__(self, operations, mountpoint, raw_fi=False, encoding='utf-8',
                  **kwargs):
 
-        """Setting raw_fi to True will cause FUSE to pass the fuse_file_info
-           class as is to Operations, instead of just the fh field.
-           This gives you access to direct_io, keep_cache, etc."""
+        '''
+        Setting raw_fi to True will cause FUSE to pass the fuse_file_info
+        class as is to Operations, instead of just the fh field.
+
+        This gives you access to direct_io, keep_cache, etc.
+        '''
 
         self.operations = operations
         self.raw_fi = raw_fi
         self.encoding = encoding
 
         args = ['fuse']
-        if kwargs.pop('foreground', False):
-            args.append('-f')
-        if kwargs.pop('debug', False):
-            args.append('-d')
-        if kwargs.pop('nothreads', False):
-            args.append('-s')
+
+        args.extend(flag for arg, flag in self.OPTIONS
+                    if kwargs.pop(arg, False))
+
         kwargs.setdefault('fsname', operations.__class__.__name__)
         args.append('-o')
         args.append(','.join(self._normalize_fuse_options(**kwargs)))
@@ -397,7 +408,8 @@ class FUSE(object):
 
     @staticmethod
     def _wrapper(func, *args, **kwargs):
-        """Decorator for the methods that follow"""
+        'Decorator for the methods that follow'
+
         try:
             return func(*args, **kwargs) or 0
         except OSError, e:
@@ -432,6 +444,8 @@ class FUSE(object):
         return self.operations('rmdir', path.decode(self.encoding))
 
     def symlink(self, source, target):
+        'creates a symlink `target -> source` (e.g. ln -s source target)'
+
         return self.operations('symlink', target.decode(self.encoding),
                                           source.decode(self.encoding))
 
@@ -440,6 +454,8 @@ class FUSE(object):
                                          new.decode(self.encoding))
 
     def link(self, source, target):
+        'creates a hard link `target -> source` (e.g. ln source target)'
+
         return self.operations('link', target.decode(self.encoding),
                                        source.decode(self.encoding))
 
@@ -678,12 +694,14 @@ class FUSE(object):
 
 
 class Operations(object):
-    """This class should be subclassed and passed as an argument to FUSE on
-       initialization. All operations should raise a FuseOSError exception
-       on error.
+    '''
+    This class should be subclassed and passed as an argument to FUSE on
+    initialization. All operations should raise a FuseOSError exception on
+    error.
 
-       When in doubt of what an operation should do, check the FUSE header
-       file or the corresponding system call man page."""
+    When in doubt of what an operation should do, check the FUSE header file
+    or the corresponding system call man page.
+    '''
 
     def __call__(self, op, *args):
         if not hasattr(self, op):
@@ -702,15 +720,19 @@ class Operations(object):
         raise FuseOSError(EROFS)
 
     def create(self, path, mode, fi=None):
-        """When raw_fi is False (default case), fi is None and create should
-           return a numerical file handle.
+        '''
+        When raw_fi is False (default case), fi is None and create should
+        return a numerical file handle.
 
-           When raw_fi is True the file handle should be set directly by
-           create and return 0."""
+        When raw_fi is True the file handle should be set directly by create
+        and return 0.
+        '''
+
         raise FuseOSError(EROFS)
 
     def destroy(self, path):
-        """Called on filesystem destruction. Path is always /"""
+        'Called on filesystem destruction. Path is always /'
+
         pass
 
     def flush(self, path, fh):
@@ -723,15 +745,16 @@ class Operations(object):
         return 0
 
     def getattr(self, path, fh=None):
-        """Returns a dictionary with keys identical to the stat C structure
-           of stat(2).
+        '''
+        Returns a dictionary with keys identical to the stat C structure of
+        stat(2).
 
-           st_atime, st_mtime and st_ctime should be floats.
+        st_atime, st_mtime and st_ctime should be floats.
 
-           NOTE: There is an incombatibility between Linux and Mac OS X
-           concerning st_nlink of directories. Mac OS X counts all files
-           inside the directory, while Linux counts only the
-           subdirectories."""
+        NOTE: There is an incombatibility between Linux and Mac OS X
+        concerning st_nlink of directories. Mac OS X counts all files inside
+        the directory, while Linux counts only the subdirectories.
+        '''
 
         if path != '/':
             raise FuseOSError(ENOENT)
@@ -741,13 +764,17 @@ class Operations(object):
         raise FuseOSError(ENOTSUP)
 
     def init(self, path):
-        """Called on filesystem initialization. (Path is always /)
+        '''
+        Called on filesystem initialization. (Path is always /)
 
-           Use it instead of __init__ if you start threads on
-           initialization."""
+        Use it instead of __init__ if you start threads on initialization.
+        '''
+
         pass
 
     def link(self, target, source):
+        'creates a hard link `target -> source` (e.g. ln source target)'
+
         raise FuseOSError(EROFS)
 
     def listxattr(self, path):
@@ -762,26 +789,34 @@ class Operations(object):
         raise FuseOSError(EROFS)
 
     def open(self, path, flags):
-        """When raw_fi is False (default case), open should return a
-           numerical file handle.
+        '''
+        When raw_fi is False (default case), open should return a numerical
+        file handle.
 
-           When raw_fi is True the signature of open becomes:
-               open(self, path, fi)
+        When raw_fi is True the signature of open becomes:
+            open(self, path, fi)
 
-           and the file handle should be set directly."""
+        and the file handle should be set directly.
+        '''
+
         return 0
 
     def opendir(self, path):
-        """Returns a numerical file handle."""
+        'Returns a numerical file handle.'
+
         return 0
 
     def read(self, path, size, offset, fh):
-        """Returns a string containing the data requested."""
+        'Returns a string containing the data requested.'
+
         raise FuseOSError(EIO)
 
     def readdir(self, path, fh):
-        """Can return either a list of names, or a list of
-           (name, attrs, offset) tuples. attrs is a dict as in getattr."""
+        '''
+        Can return either a list of names, or a list of (name, attrs, offset)
+        tuples. attrs is a dict as in getattr.
+        '''
+
         return ['.', '..']
 
     def readlink(self, path):
@@ -806,14 +841,19 @@ class Operations(object):
         raise FuseOSError(ENOTSUP)
 
     def statfs(self, path):
-        """Returns a dictionary with keys identical to the statvfs C
-           structure of statvfs(3).
+        '''
+        Returns a dictionary with keys identical to the statvfs C structure of
+        statvfs(3).
 
-           On Mac OS X f_bsize and f_frsize must be a power of 2
-           (minimum 512)."""
+        On Mac OS X f_bsize and f_frsize must be a power of 2
+        (minimum 512).
+        '''
+
         return {}
 
     def symlink(self, target, source):
+        'creates a symlink `target -> source` (e.g. ln -s source target)'
+
         raise FuseOSError(EROFS)
 
     def truncate(self, path, length, fh=None):
@@ -823,7 +863,8 @@ class Operations(object):
         raise FuseOSError(EROFS)
 
     def utimens(self, path, times=None):
-        """Times is a (atime, mtime) tuple. If None use current time."""
+        'Times is a (atime, mtime) tuple. If None use current time.'
+
         return 0
 
     def write(self, path, data, offset, fh):

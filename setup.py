@@ -1,5 +1,7 @@
 #!/usr/bin/env python
 
+from __future__ import with_statement
+
 from setuptools import setup
 
 try:
@@ -13,7 +15,7 @@ with open('README') as readme:
 
 setup(
     name = 'fusepy',
-    version = '2.0.1',
+    version = '2.0.2',
 
     description = 'Simple ctypes bindings for FUSE',
     long_description = documentation,
