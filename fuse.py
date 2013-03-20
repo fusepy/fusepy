@@ -387,12 +387,18 @@ class FUSE(object):
                 op = partial(self._wrapper, getattr(self, name))
                 setattr(fuse_ops, name, prototype(op))
 
-        old_handler = signal(SIGINT, SIG_DFL)
+        try:
+            old_handler = signal(SIGINT, SIG_DFL)
+        except ValueError:
+            old_handler = SIG_DFL
 
         err = _libfuse.fuse_main_real(len(args), argv, pointer(fuse_ops),
                                       sizeof(fuse_ops), None)
 
-        signal(SIGINT, old_handler)
+        try:
+            signal(SIGINT, old_handler)
+        except ValueError:
+            pass
 
         del self.operations     # Invoke the destructor
         if err:
