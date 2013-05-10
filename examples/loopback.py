@@ -34,8 +34,11 @@ class Loopback(LoggingMixIn, Operations):
         return os.fsync(fh)
 
     def fsync(self, path, datasync, fh):
-        return os.fsync(fh)
-
+        if datasync != 0:
+          return os.fdatasync(fh)
+        else:
+          return os.fsync(fh)
+    
     def getattr(self, path, fh=None):
         st = os.lstat(path)
         return dict((key, getattr(st, key)) for key in ('st_atime', 'st_ctime',
