@@ -28,7 +28,7 @@ class Loopback(LoggingMixIn, Operations):
     chown = os.chown
 
     def create(self, path, mode):
-        return os.open(path, os.O_WRONLY | os.O_CREAT, mode)
+        return os.open(path, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, mode)
 
     def flush(self, path, fh):
         return os.fsync(fh)
