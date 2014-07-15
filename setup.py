@@ -10,15 +10,11 @@ try:
 except ImportError:
     fixers = set()
 
-with open('README') as readme:
-    documentation = readme.read()
-
 setup(
     name='fusepy',
     version='2.0.2',
 
     description='Simple ctypes bindings for FUSE',
-    long_description=documentation,
     author='Giorgos Verigakis',
     author_email='verigak@gmail.com',
     maintainer='Terence Honles',
