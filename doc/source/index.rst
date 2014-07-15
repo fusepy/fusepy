@@ -8,4 +8,5 @@ Contents:
 
    about
    examples
+   fusell
    operations
