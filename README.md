@@ -40,3 +40,11 @@ fusepy requires FUSE 2.6 (or later) and runs on:
   [officially hosted on GitHub]: source_
   [download]: https://github.com/terencehonles/fusepy/zipball/master
   [source]: http://github.com/terencehonles/fusepy
+
+### TODO
+  * Cleanup
+  * Restructure
+  * Add minimal docs
+  * Build on rtd
+  * Tests
+  * Add travis
