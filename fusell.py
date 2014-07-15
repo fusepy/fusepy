@@ -24,6 +24,7 @@ from stat import S_IFDIR
 _system = system()
 _machine = machine()
 
+
 class LibFUSE(CDLL):
     def __init__(self):
         if _system == 'Darwin':
@@ -32,8 +33,9 @@ class LibFUSE(CDLL):
 
         self.fuse_mount.argtypes = (c_char_p, POINTER(fuse_args))
         self.fuse_mount.restype = c_void_p
-        self.fuse_lowlevel_new.argtypes = (POINTER(fuse_args), POINTER(fuse_lowlevel_ops),
-                                            c_size_t, c_void_p)
+        self.fuse_lowlevel_new.argtypes = (POINTER(fuse_args),
+                                           POINTER(fuse_lowlevel_ops),
+                                           c_size_t, c_void_p)
         self.fuse_lowlevel_new.restype = c_void_p
         self.fuse_set_signal_handlers.argtypes = (c_void_p,)
         self.fuse_session_add_chan.argtypes = (c_void_p, c_void_p)
@@ -53,17 +55,22 @@ class LibFUSE(CDLL):
         self.fuse_reply_buf.argtypes = (fuse_req_t, c_char_p, c_size_t)
         self.fuse_reply_write.argtypes = (fuse_req_t, c_size_t)
 
-        self.fuse_add_direntry.argtypes = (c_void_p, c_char_p, c_size_t, c_char_p,
-                                            c_stat_p, c_off_t)
+        self.fuse_add_direntry.argtypes = (c_void_p, c_char_p, c_size_t,
+                                           c_char_p, c_stat_p, c_off_t)
+
 
 class fuse_args(Structure):
-    _fields_ = [('argc', c_int), ('argv', POINTER(c_char_p)), ('allocated', c_int)]
+    _fields_ = [('argc', c_int), ('argv', POINTER(c_char_p)),
+                ('allocated', c_int)]
+
 
 class c_timespec(Structure):
     _fields_ = [('tv_sec', c_long), ('tv_nsec', c_long)]
 
+
 class c_stat(Structure):
     pass    # Platform dependent
+
 
 if _system == 'Darwin':
     ENOTSUP = 45
@@ -154,6 +161,7 @@ elif _system == 'Linux':
 else:
     raise NotImplementedError('%s is not supported.' % _system)
 
+
 class c_statvfs(Structure):
     _fields_ = [
         ('f_bsize', c_ulong),
@@ -164,6 +172,7 @@ class c_statvfs(Structure):
         ('f_files', c_fsfilcnt_t),
         ('f_ffree', c_fsfilcnt_t),
         ('f_favail', c_fsfilcnt_t)]
+
 
 class fuse_file_info(Structure):
     _fields_ = [
@@ -177,6 +186,7 @@ class fuse_file_info(Structure):
         ('fh', c_uint64),
         ('lock_owner', c_uint64)]
 
+
 class fuse_ctx(Structure):
     _fields_ = [('uid', c_uid_t), ('gid', c_gid_t), ('pid', c_pid_t)]
 
@@ -185,7 +195,9 @@ fuse_req_t = c_void_p
 c_stat_p = POINTER(c_stat)
 fuse_file_info_p = POINTER(fuse_file_info)
 
-FUSE_SET_ATTR = ('st_mode', 'st_uid', 'st_gid', 'st_size', 'st_atime', 'st_mtime')
+FUSE_SET_ATTR = ('st_mode', 'st_uid', 'st_gid', 'st_size', 'st_atime',
+                 'st_mtime')
+
 
 class fuse_entry_param(Structure):
     _fields_ = [
@@ -195,6 +207,7 @@ class fuse_entry_param(Structure):
         ('attr_timeout', c_double),
         ('entry_timeout', c_double)]
 
+
 class fuse_lowlevel_ops(Structure):
     _fields_ = [
         ('init', CFUNCTYPE(None, c_void_p, c_void_p)),
@@ -202,26 +215,36 @@ class fuse_lowlevel_ops(Structure):
         ('lookup', CFUNCTYPE(None, fuse_req_t, fuse_ino_t, c_char_p)),
         ('forget', CFUNCTYPE(None, fuse_req_t, fuse_ino_t, c_ulong)),
         ('getattr', CFUNCTYPE(None, fuse_req_t, fuse_ino_t, fuse_file_info_p)),
-        ('setattr', CFUNCTYPE(None, fuse_req_t, fuse_ino_t, c_stat_p, c_int, fuse_file_info_p)),
+        ('setattr', CFUNCTYPE(None, fuse_req_t, fuse_ino_t, c_stat_p, c_int,
+                              fuse_file_info_p)),
         ('readlink', CFUNCTYPE(None, fuse_req_t, fuse_ino_t)),
-        ('mknod', CFUNCTYPE(None, fuse_req_t, fuse_ino_t, c_char_p, c_mode_t, c_dev_t)),
+        ('mknod', CFUNCTYPE(None, fuse_req_t, fuse_ino_t, c_char_p, c_mode_t,
+                            c_dev_t)),
         ('mkdir', CFUNCTYPE(None, fuse_req_t, fuse_ino_t, c_char_p, c_mode_t)),
         ('unlink', CFUNCTYPE(None, fuse_req_t, fuse_ino_t, c_char_p)),
         ('rmdir', CFUNCTYPE(None, fuse_req_t, fuse_ino_t, c_char_p)),
-        ('symlink', CFUNCTYPE(None, fuse_req_t, c_char_p, fuse_ino_t, c_char_p)),
-        ('rename', CFUNCTYPE(None, fuse_req_t, fuse_ino_t, c_char_p, fuse_ino_t, c_char_p)),
-        ('link', CFUNCTYPE(None, fuse_req_t, fuse_ino_t, fuse_ino_t, c_char_p)),
+        ('symlink', CFUNCTYPE(None, fuse_req_t, c_char_p, fuse_ino_t,
+                              c_char_p)),
+        ('rename', CFUNCTYPE(None, fuse_req_t, fuse_ino_t, c_char_p,
+                             fuse_ino_t, c_char_p)),
+        ('link', CFUNCTYPE(None, fuse_req_t, fuse_ino_t, fuse_ino_t,
+                           c_char_p)),
         ('open', CFUNCTYPE(None, fuse_req_t, fuse_ino_t, fuse_file_info_p)),
-        ('read', CFUNCTYPE(None, fuse_req_t, fuse_ino_t, c_size_t, c_off_t, fuse_file_info_p)),
-        ('write', CFUNCTYPE(None, fuse_req_t, fuse_ino_t, c_char_p, c_size_t, c_off_t,
-                                fuse_file_info_p)),
+        ('read', CFUNCTYPE(None, fuse_req_t, fuse_ino_t, c_size_t, c_off_t,
+                           fuse_file_info_p)),
+        ('write', CFUNCTYPE(None, fuse_req_t, fuse_ino_t, c_char_p, c_size_t,
+                            c_off_t, fuse_file_info_p)),
         ('flush', CFUNCTYPE(None, fuse_req_t, fuse_ino_t, fuse_file_info_p)),
         ('release', CFUNCTYPE(None, fuse_req_t, fuse_ino_t, fuse_file_info_p)),
-        ('fsync', CFUNCTYPE(None, fuse_req_t, fuse_ino_t, c_int, fuse_file_info_p)),
+        ('fsync', CFUNCTYPE(None, fuse_req_t, fuse_ino_t, c_int,
+                            fuse_file_info_p)),
         ('opendir', CFUNCTYPE(None, fuse_req_t, fuse_ino_t, fuse_file_info_p)),
-        ('readdir', CFUNCTYPE(None, fuse_req_t, fuse_ino_t, c_size_t, c_off_t, fuse_file_info_p)),
-        ('releasedir', CFUNCTYPE(None, fuse_req_t, fuse_ino_t, fuse_file_info_p)),
-        ('fsyncdir', CFUNCTYPE(None, fuse_req_t, fuse_ino_t, c_int, fuse_file_info_p))]
+        ('readdir', CFUNCTYPE(None, fuse_req_t, fuse_ino_t, c_size_t, c_off_t,
+                              fuse_file_info_p)),
+        ('releasedir', CFUNCTYPE(None, fuse_req_t, fuse_ino_t,
+                                 fuse_file_info_p)),
+        ('fsyncdir', CFUNCTYPE(None, fuse_req_t, fuse_ino_t, c_int,
+                               fuse_file_info_p))]
 
 
 def struct_to_dict(p):
@@ -230,6 +253,7 @@ def struct_to_dict(p):
         return dict((key, getattr(x, key)) for key, type in x._fields_)
     except ValueError:
         return {}
+
 
 def stat_to_dict(p):
     try:
@@ -246,6 +270,7 @@ def stat_to_dict(p):
     except ValueError:
         return {}
 
+
 def dict_to_stat(d):
     for key in ('st_atime', 'st_mtime', 'st_ctime'):
         if key in d:
@@ -255,17 +280,21 @@ def dict_to_stat(d):
             d[key + 'spec'] = c_timespec(sec, nsec)
     return c_stat(**d)
 
+
 def setattr_mask_to_list(mask):
-    return [FUSE_SET_ATTR[i] for i in range(len(FUSE_SET_ATTR)) if mask & (1 << i)]
+    return [
+        FUSE_SET_ATTR[i] for i in range(len(FUSE_SET_ATTR)) if mask & (1 << i)
+    ]
+
 
 class FUSELL(object):
     def __init__(self, mountpoint):
         self.libfuse = LibFUSE()
 
         fuse_ops = fuse_lowlevel_ops()
-
         for name, prototype in fuse_lowlevel_ops._fields_:
-            method = getattr(self, 'fuse_' + name, None) or getattr(self, name, None)
+            method = getattr(self, 'fuse_' + name, None) or\
+                getattr(self, name, None)
             if method:
                 setattr(fuse_ops, name, prototype(method))
 
@@ -277,7 +306,8 @@ class FUSELL(object):
         chan = self.libfuse.fuse_mount(mountpoint, argv)
         assert chan
 
-        session = self.libfuse.fuse_lowlevel_new(argv, byref(fuse_ops), sizeof(fuse_ops), None)
+        session = self.libfuse.fuse_lowlevel_new(argv, byref(fuse_ops),
+                                                 sizeof(fuse_ops), None)
         assert session
 
         err = self.libfuse.fuse_set_signal_handlers(session)
@@ -311,10 +341,12 @@ class FUSELL(object):
 
     def reply_attr(self, req, attr, attr_timeout):
         st = dict_to_stat(attr)
-        return self.libfuse.fuse_reply_attr(req, byref(st), c_double(attr_timeout))
+        return self.libfuse.fuse_reply_attr(req, byref(st),
+                                            c_double(attr_timeout))
 
     def reply_readlink(self, req, *args):
-        pass    # XXX
+        # XXX
+        pass
 
     def reply_open(self, req, d):
         fi = fuse_file_info(**d)
@@ -330,7 +362,8 @@ class FUSELL(object):
         bufsize = 0
         sized_entries = []
         for name, attr in entries:
-            entsize = self.libfuse.fuse_add_direntry(req, None, 0, name, None, 0)
+            entsize = self.libfuse.fuse_add_direntry(req, None, 0, name, None,
+                                                     0)
             sized_entries.append((name, attr, entsize))
             bufsize += entsize
 
@@ -340,18 +373,18 @@ class FUSELL(object):
             entbuf = cast(addressof(buf) + next, c_char_p)
             st = c_stat(**attr)
             next += entsize
-            self.libfuse.fuse_add_direntry(req, entbuf, entsize, name, byref(st), next)
+            self.libfuse.fuse_add_direntry(req, entbuf, entsize, name,
+                                           byref(st), next)
 
         if off < bufsize:
             buf = cast(addressof(buf) + off, c_char_p) if off else buf
-            return self.libfuse.fuse_reply_buf(req, buf, min(bufsize - off, size))
+            return self.libfuse.fuse_reply_buf(req, buf, min(bufsize - off,
+                                                             size))
         else:
             return self.libfuse.fuse_reply_buf(req, None, 0)
 
-
     # If you override the following methods you should reply directly
     # with the self.libfuse.fuse_reply_* methods.
-
     def fuse_getattr(self, req, ino, fi):
         self.getattr(req, ino, struct_to_dict(fi))
 
@@ -393,13 +426,11 @@ class FUSELL(object):
     def fuse_fsyncdir(self, req, ino, datasync, fi):
         self.fsyncdir(req, ino, datasync, struct_to_dict(fi))
 
-
     # Utility methods
 
     def req_ctx(self, req):
         ctx = self.libfuse.fuse_req_ctx(req)
         return struct_to_dict(ctx)
-
 
     # Methods to be overridden in subclasses.
     # Reply with the self.reply_* methods.
