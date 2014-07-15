@@ -42,9 +42,9 @@ fusepy requires FUSE 2.6 (or later) and runs on:
   [source]: http://github.com/terencehonles/fusepy
 
 ### TODO
-  * Cleanup
-  * Restructure
+  * Cleanup           DONE
+  * Restructure       DONE
   * Add minimal docs
-  * Build on rtd
+  * Build on rtd      DONE
   * Tests
   * Add travis

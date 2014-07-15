@@ -734,9 +734,11 @@ class Operations(object):
     bmap = None
 
     def chmod(self, path, mode):
+        """Change the permission bits of a file"""
         raise FuseOSError(EROFS)
 
     def chown(self, path, uid, gid):
+        """Change the owner and group of a file"""
         raise FuseOSError(EROFS)
 
     def create(self, path, mode, fi=None):
@@ -756,12 +758,51 @@ class Operations(object):
         pass
 
     def flush(self, path, fh):
+        """
+        Possibly flush cached data
+
+        BIG NOTE: This is not equivalent to fsync(). It's not a request to
+        sync dirty data.
+
+        Flush is called on each close() of a file descriptor. So if
+        a filesystem wants to return write errors in close() and the file has
+        cached dirty
+        data, this is a good place to write back data and return any errors.
+        Since many applications ignore close() errors this is not always
+        useful.
+
+        NOTE: The flush() method may be called more than once for each open().
+        This happens if more than one file descriptor refers to an opened file
+        due to dup(), dup2() or fork() calls. It is not possible to determine
+        if a flush is final, so each flush should be treated equally. Multiple
+        write-flush sequences are relatively rare, so this shouldn't be
+        a problem.
+
+        Filesystems shouldn't assume that flush will always be called after
+        some writes, or that if will be called at all.
+
+        Changed in version 2.2
+        """
         return 0
 
     def fsync(self, path, datasync, fh):
+        """
+        Synchronize file contents
+
+        If the datasync parameter is non-zero, then only the user data should
+        be flushed, not the meta data.
+        """
+
         return 0
 
     def fsyncdir(self, path, datasync, fh):
+        """
+        Synchronize directory contents
+
+        If the datasync parameter is non-zero, then only the user data should
+        be flushed, not the meta data.
+        """
+
         return 0
 
     def getattr(self, path, fh=None):
@@ -781,6 +822,8 @@ class Operations(object):
         return dict(st_mode=(S_IFDIR | 0755), st_nlink=2)
 
     def getxattr(self, path, name, position=0):
+        """Get extended attributes"""
+
         raise FuseOSError(ENOTSUP)
 
     def init(self, path):
@@ -798,14 +841,32 @@ class Operations(object):
         raise FuseOSError(EROFS)
 
     def listxattr(self, path):
+        """List extended attributes"""
+
         return []
 
     lock = None
 
     def mkdir(self, path, mode):
+        """
+        Create a directory
+
+        Note that the mode argument may not have the type specification bits
+        set, i.e. S_ISDIR(mode) can be false. To obtain the correct directory
+        type bits use mode|S_IFDIR
+        """
+
         raise FuseOSError(EROFS)
 
     def mknod(self, path, mode, dev):
+        """
+        Create a file node
+
+        This is called for creation of all non-directory, non-symlink nodes. If
+        the filesystem defines a create() method, then for regular files that
+        will be called instead.
+        """
+
         raise FuseOSError(EROFS)
 
     def open(self, path, flags):
@@ -840,24 +901,54 @@ class Operations(object):
         return ['.', '..']
 
     def readlink(self, path):
+        """Read the target of a symbolic link
+
+        The buffer should be filled with a null terminated string. The buffer
+        size argument includes the space for the terminating null character. If
+        the linkname is too long to fit in the buffer, it should be truncated.
+        The return value should be 0 for success
+        """
+
         raise FuseOSError(ENOENT)
 
     def release(self, path, fh):
+        """Release an open file
+
+        Release is called when there are no more references to an open file:
+        all file descriptors are closed and all memory mappings are unmapped.
+
+        For every open() call there will be exactly one release() call with the
+        same flags and file descriptor. It is possible to have a file opened
+        more than once, in which case only the last release will mean, that no
+        more reads/writes will happen on the file. The return value of release
+        is ignored.
+        """
+
         return 0
 
     def releasedir(self, path, fh):
+        """Release directory"""
+
         return 0
 
     def removexattr(self, path, name):
+        """Remove extended attributes"""
+
         raise FuseOSError(ENOTSUP)
 
     def rename(self, old, new):
+        """Rename a file"""
+
         raise FuseOSError(EROFS)
 
     def rmdir(self, path):
+        """Remove a directory"""
+
         raise FuseOSError(EROFS)
 
     def setxattr(self, path, name, value, options, position=0):
+        """Set extended attributes"""
+
         raise FuseOSError(ENOTSUP)
 
     def statfs(self, path):
@@ -877,17 +968,34 @@ class Operations(object):
         raise FuseOSError(EROFS)
 
     def truncate(self, path, length, fh=None):
+        """Change the size of a file"""
+
         raise FuseOSError(EROFS)
 
     def unlink(self, path):
+        """Remove a file"""
+
         raise FuseOSError(EROFS)
 
     def utimens(self, path, times=None):
-        'Times is a (atime, mtime) tuple. If None use current time.'
+        """Change the access and modification times of a file with nanosecond
+        resolution
+        This supersedes the old utime() interface. New applications should use
+        this.
+        See the utimensat(2) man page for details.
+
+        times is a (atime, mtime) tuple. If None use current time."""
 
         return 0
 
     def write(self, path, data, offset, fh):
+        """Write data to an open file
+
+        Write should return exactly the number of bytes requested except on
+        error. An exception to this is when the 'direct_io' mount option is
+        specified (see read operation).
+        """
+
         raise FuseOSError(EROFS)
 
 
