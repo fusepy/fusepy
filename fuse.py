@@ -672,7 +672,7 @@ class FUSE(object):
             fh = fip.contents.fh
 
         return self.operations('truncate', path.decode(self.encoding),
-                                           length, fh)
+                               length, fh)
 
     def fgetattr(self, path, buf, fip):
         memset(buf, 0, sizeof(c_stat))
@@ -696,7 +696,7 @@ class FUSE(object):
             fh = fip.contents.fh
 
         return self.operations('lock', path.decode(self.encoding), fh, cmd,
-                                       lock)
+                               lock)
 
     def utimens(self, path, buf):
         if buf:
@@ -710,7 +710,7 @@ class FUSE(object):
 
     def bmap(self, path, blocksize, idx):
         return self.operations('bmap', path.decode(self.encoding), blocksize,
-                                       idx)
+                               idx)
 
 
 class Operations(object):
