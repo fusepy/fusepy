@@ -14,28 +14,28 @@ with open('README') as readme:
     documentation = readme.read()
 
 setup(
-    name = 'fusepy',
-    version = '2.0.2',
+    name='fusepy',
+    version='2.0.2',
 
-    description = 'Simple ctypes bindings for FUSE',
-    long_description = documentation,
-    author = 'Giorgos Verigakis',
-    author_email = 'verigak@gmail.com',
-    maintainer = 'Terence Honles',
-    maintainer_email = 'terence@honles.com',
-    license = 'ISC',
+    description='Simple ctypes bindings for FUSE',
+    long_description=documentation,
+    author='Giorgos Verigakis',
+    author_email='verigak@gmail.com',
+    maintainer='Terence Honles',
+    maintainer_email='terence@honles.com',
+    license='ISC',
     py_modules=['fuse'],
-    url = 'http://github.com/terencehonles/fusepy',
+    url='http://github.com/terencehonles/fusepy',
 
-    use_2to3 = True,
+    use_2to3=True,
     # only use the following fixers (everything else is already compatible)
-    use_2to3_exclude_fixers = fixers - set([
+    use_2to3_exclude_fixers=fixers - set([
         'lib2to3.fixes.fix_except',
         'lib2to3.fixes.fix_future',
         'lib2to3.fixes.fix_numliterals',
     ]),
 
-    classifiers = [
+    classifiers=[
         'Intended Audience :: Developers',
         'License :: OSI Approved :: ISC License (ISCL)',
         'Operating System :: MacOS',
