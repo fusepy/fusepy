@@ -46,11 +46,14 @@ try:
 except NameError:
     basestring = str
 
+
 class c_timespec(Structure):
     _fields_ = [('tv_sec', c_long), ('tv_nsec', c_long)]
 
+
 class c_utimbuf(Structure):
     _fields_ = [('actime', c_timespec), ('modtime', c_timespec)]
+
 
 class c_stat(Structure):
     pass    # Platform dependent
@@ -58,8 +61,10 @@ class c_stat(Structure):
 _system = system()
 _machine = machine()
 
+
 if _system == 'Darwin':
-    _libiconv = CDLL(find_library('iconv'), RTLD_GLOBAL) # libfuse dependency
+    # libfuse dependency
+    _libiconv = CDLL(find_library('iconv'), RTLD_GLOBAL)
     _libfuse_path = (find_library('fuse4x') or find_library('osxfuse') or
                      find_library('fuse'))
 else:
@@ -85,9 +90,9 @@ if _system in ('Darwin', 'Darwin-MacFuse', 'FreeBSD'):
     c_pid_t = c_int32
     c_uid_t = c_uint32
     setxattr_t = CFUNCTYPE(c_int, c_char_p, c_char_p, POINTER(c_byte),
-        c_size_t, c_int, c_uint32)
+                           c_size_t, c_int, c_uint32)
     getxattr_t = CFUNCTYPE(c_int, c_char_p, c_char_p, POINTER(c_byte),
-        c_size_t, c_uint32)
+                           c_size_t, c_uint32)
     if _system == 'Darwin':
         c_stat._fields_ = [
             ('st_dev', c_dev_t),
@@ -226,6 +231,7 @@ if _system == 'FreeBSD':
             ('f_flag', c_ulong),
             ('f_frsize', c_ulong)]
 
+
 class fuse_file_info(Structure):
     _fields_ = [
         ('flags', c_int),
@@ -237,6 +243,7 @@ class fuse_file_info(Structure):
         ('padding', c_uint, 29),
         ('fh', c_uint64),
         ('lock_owner', c_uint64)]
+
 
 class fuse_context(Structure):
     _fields_ = [
@@ -316,6 +323,7 @@ class fuse_operations(Structure):
 
 def time_of_timespec(ts):
     return ts.tv_sec + ts.tv_nsec / 10 ** 9
+
 
 def set_st_attrs(st, attrs):
     for key, val in attrs.items():
@@ -408,7 +416,8 @@ class FUSE(object):
     def _normalize_fuse_options(**kargs):
         for key, value in kargs.items():
             if isinstance(value, bool):
-                if value is True: yield key
+                if value is True:
+                    yield key
             else:
                 yield '%s=%s' % (key, value)
 
@@ -453,17 +462,17 @@ class FUSE(object):
         'creates a symlink `target -> source` (e.g. ln -s source target)'
 
         return self.operations('symlink', target.decode(self.encoding),
-                                          source.decode(self.encoding))
+                               source.decode(self.encoding))
 
     def rename(self, old, new):
         return self.operations('rename', old.decode(self.encoding),
-                                         new.decode(self.encoding))
+                               new.decode(self.encoding))
 
     def link(self, source, target):
         'creates a hard link `target -> source` (e.g. ln source target)'
 
         return self.operations('link', target.decode(self.encoding),
-                                       source.decode(self.encoding))
+                               source.decode(self.encoding))
 
     def chmod(self, path, mode):
         return self.operations('chmod', path.decode(self.encoding), mode)
@@ -486,7 +495,7 @@ class FUSE(object):
             return self.operations('open', path.decode(self.encoding), fi)
         else:
             fi.fh = self.operations('open', path.decode(self.encoding),
-                                            fi.flags)
+                                    fi.flags)
 
             return 0
 
@@ -497,15 +506,16 @@ class FUSE(object):
           fh = fip.contents.fh
 
         ret = self.operations('read', path.decode(self.encoding), size,
-                                      offset, fh)
+                              offset, fh)
 
-        if not ret: return 0
+        if not ret:
+            return 0
 
         retsize = len(ret)
         assert retsize <= size, \
             'actual amount read %d greater than expected %d' % (retsize, size)
 
-        data = create_string_buffer(ret, retsize)
+        create_string_buffer(ret, retsize)
         memmove(buf, ret, retsize)
         return retsize
 
@@ -518,7 +528,7 @@ class FUSE(object):
             fh = fip.contents.fh
 
         return self.operations('write', path.decode(self.encoding), data,
-                                        offset, fh)
+                               offset, fh)
 
     def statfs(self, path, buf):
         stv = buf.contents
@@ -552,7 +562,7 @@ class FUSE(object):
             fh = fip.contents.fh
 
         return self.operations('fsync', path.decode(self.encoding), datasync,
-                                        fh)
+                               fh)
 
     def setxattr(self, path, name, value, size, options, *args):
         return self.operations('setxattr', path.decode(self.encoding),
@@ -561,14 +571,16 @@ class FUSE(object):
 
     def getxattr(self, path, name, value, size, *args):
         ret = self.operations('getxattr', path.decode(self.encoding),
-                                          name.decode(self.encoding), *args)
+                              name.decode(self.encoding), *args)
 
         retsize = len(ret)
         # allow size queries
-        if not value: return retsize
+        if not value:
+            return retsize
 
         # do not truncate
-        if retsize > size: return -ERANGE
+        if retsize > size:
+            return -ERANGE
 
         buf = create_string_buffer(ret, retsize)    # Does not add trailing 0
         memmove(value, buf, retsize)
@@ -581,10 +593,12 @@ class FUSE(object):
 
         retsize = len(ret)
         # allow size queries
-        if not namebuf: return retsize
+        if not namebuf:
+            return retsize
 
         # do not truncate
-        if retsize > size: return -ERANGE
+        if retsize > size:
+            return -ERANGE
 
         buf = create_string_buffer(ret, retsize)
         memmove(namebuf, buf, retsize)
@@ -593,7 +607,7 @@ class FUSE(object):
 
     def removexattr(self, path, name):
         return self.operations('removexattr', path.decode(self.encoding),
-                                              name.decode(self.encoding))
+                               name.decode(self.encoding))
 
     def opendir(self, path, fip):
         # Ignore raw_fi
@@ -605,7 +619,7 @@ class FUSE(object):
     def readdir(self, path, buf, filler, offset, fip):
         # Ignore raw_fi
         for item in self.operations('readdir', path.decode(self.encoding),
-                                               fip.contents.fh):
+                                    fip.contents.fh):
 
             if isinstance(item, basestring):
                 name, st, offset = item, None, 0
@@ -625,12 +639,12 @@ class FUSE(object):
     def releasedir(self, path, fip):
         # Ignore raw_fi
         return self.operations('releasedir', path.decode(self.encoding),
-                                             fip.contents.fh)
+                               fip.contents.fh)
 
     def fsyncdir(self, path, datasync, fip):
         # Ignore raw_fi
         return self.operations('fsyncdir', path.decode(self.encoding),
-                                           datasync, fip.contents.fh)
+                               datasync, fip.contents.fh)
 
     def init(self, conn):
         return self.operations('init', '/')
@@ -658,7 +672,7 @@ class FUSE(object):
             fh = fip.contents.fh
 
         return self.operations('truncate', path.decode(self.encoding),
-                                           length, fh)
+                               length, fh)
 
     def fgetattr(self, path, buf, fip):
         memset(buf, 0, sizeof(c_stat))
@@ -682,7 +696,7 @@ class FUSE(object):
             fh = fip.contents.fh
 
         return self.operations('lock', path.decode(self.encoding), fh, cmd,
-                                       lock)
+                               lock)
 
     def utimens(self, path, buf):
         if buf:
@@ -696,7 +710,7 @@ class FUSE(object):
 
     def bmap(self, path, blocksize, idx):
         return self.operations('bmap', path.decode(self.encoding), blocksize,
-                                       idx)
+                               idx)
 
 
 class Operations(object):
@@ -720,9 +734,11 @@ class Operations(object):
     bmap = None
 
     def chmod(self, path, mode):
+        """Change the permission bits of a file"""
         raise FuseOSError(EROFS)
 
     def chown(self, path, uid, gid):
+        """Change the owner and group of a file"""
         raise FuseOSError(EROFS)
 
     def create(self, path, mode, fi=None):
@@ -742,12 +758,51 @@ class Operations(object):
         pass
 
     def flush(self, path, fh):
+        """
+        Possibly flush cached data
+
+        BIG NOTE: This is not equivalent to fsync(). It's not a request to
+        sync dirty data.
+
+        Flush is called on each close() of a file descriptor. So if
+        a filesystem wants to return write errors in close() and the file has
+        cached dirty
+        data, this is a good place to write back data and return any errors.
+        Since many applications ignore close() errors this is not always
+        useful.
+
+        NOTE: The flush() method may be called more than once for each open().
+        This happens if more than one file descriptor refers to an opened file
+        due to dup(), dup2() or fork() calls. It is not possible to determine
+        if a flush is final, so each flush should be treated equally. Multiple
+        write-flush sequences are relatively rare, so this shouldn't be
+        a problem.
+
+        Filesystems shouldn't assume that flush will always be called after
+        some writes, or that if will be called at all.
+
+        Changed in version 2.2
+        """
         return 0
 
     def fsync(self, path, datasync, fh):
+        """
+        Synchronize file contents
+
+        If the datasync parameter is non-zero, then only the user data should
+        be flushed, not the meta data.
+        """
+
         return 0
 
     def fsyncdir(self, path, datasync, fh):
+        """
+        Synchronize directory contents
+
+        If the datasync parameter is non-zero, then only the user data should
+        be flushed, not the meta data.
+        """
+
         return 0
 
     def getattr(self, path, fh=None):
@@ -767,6 +822,8 @@ class Operations(object):
         return dict(st_mode=(S_IFDIR | 0755), st_nlink=2)
 
     def getxattr(self, path, name, position=0):
+        """Get extended attributes"""
+
         raise FuseOSError(ENOTSUP)
 
     def init(self, path):
@@ -784,14 +841,32 @@ class Operations(object):
         raise FuseOSError(EROFS)
 
     def listxattr(self, path):
+        """List extended attributes"""
+
         return []
 
     lock = None
 
     def mkdir(self, path, mode):
+        """
+        Create a directory
+
+        Note that the mode argument may not have the type specification bits
+        set, i.e. S_ISDIR(mode) can be false. To obtain the correct directory
+        type bits use mode|S_IFDIR
+        """
+
         raise FuseOSError(EROFS)
 
     def mknod(self, path, mode, dev):
+        """
+        Create a file node
+
+        This is called for creation of all non-directory, non-symlink nodes. If
+        the filesystem defines a create() method, then for regular files that
+        will be called instead.
+        """
+
         raise FuseOSError(EROFS)
 
     def open(self, path, flags):
@@ -826,24 +901,54 @@ class Operations(object):
         return ['.', '..']
 
     def readlink(self, path):
+        """Read the target of a symbolic link
+
+        The buffer should be filled with a null terminated string. The buffer
+        size argument includes the space for the terminating null character. If
+        the linkname is too long to fit in the buffer, it should be truncated.
+        The return value should be 0 for success
+        """
+
         raise FuseOSError(ENOENT)
 
     def release(self, path, fh):
+        """Release an open file
+
+        Release is called when there are no more references to an open file:
+        all file descriptors are closed and all memory mappings are unmapped.
+
+        For every open() call there will be exactly one release() call with the
+        same flags and file descriptor. It is possible to have a file opened
+        more than once, in which case only the last release will mean, that no
+        more reads/writes will happen on the file. The return value of release
+        is ignored.
+        """
+
         return 0
 
     def releasedir(self, path, fh):
+        """Release directory"""
+
         return 0
 
     def removexattr(self, path, name):
+        """Remove extended attributes"""
+
         raise FuseOSError(ENOTSUP)
 
     def rename(self, old, new):
+        """Rename a file"""
+
         raise FuseOSError(EROFS)
 
     def rmdir(self, path):
+        """Remove a directory"""
+
         raise FuseOSError(EROFS)
 
     def setxattr(self, path, name, value, options, position=0):
+        """Set extended attributes"""
+
         raise FuseOSError(ENOTSUP)
 
     def statfs(self, path):
@@ -863,17 +968,34 @@ class Operations(object):
         raise FuseOSError(EROFS)
 
     def truncate(self, path, length, fh=None):
+        """Change the size of a file"""
+
         raise FuseOSError(EROFS)
 
     def unlink(self, path):
+        """Remove a file"""
+
         raise FuseOSError(EROFS)
 
     def utimens(self, path, times=None):
-        'Times is a (atime, mtime) tuple. If None use current time.'
+        """Change the access and modification times of a file with nanosecond
+        resolution
+        This supersedes the old utime() interface. New applications should use
+        this.
+        See the utimensat(2) man page for details.
+
+        times is a (atime, mtime) tuple. If None use current time."""
 
         return 0
 
     def write(self, path, data, offset, fh):
+        """Write data to an open file
+
+        Write should return exactly the number of bytes requested except on
+        error. An exception to this is when the 'direct_io' mount option is
+        specified (see read operation).
+        """
+
         raise FuseOSError(EROFS)
 
 
