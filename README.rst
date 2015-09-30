@@ -14,6 +14,7 @@ are fixed using the 2to3 tool when installing the package, or runnning::
 
     2to3 -f numliterals -f except -w fuse.py
 
+
 examples
 --------
 See some examples of how you can use fusepy:
