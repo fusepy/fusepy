@@ -579,7 +579,7 @@ class FUSE(object):
         attrs = self.operations('listxattr', path.decode(self.encoding)) or ''
         ret = '\x00'.join(attrs).encode(self.encoding)
         if len(ret) > 0:
-            ret += '\x00'
+            ret += '\x00'.encode(self.encoding)
 
         retsize = len(ret)
         # allow size queries
