@@ -28,14 +28,17 @@ class Loopback(LoggingMixIn, Operations):
     chown = os.chown
 
     def create(self, path, mode):
-        return os.open(path, os.O_WRONLY | os.O_CREAT, mode)
+        return os.open(path, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, mode)
 
     def flush(self, path, fh):
         return os.fsync(fh)
 
     def fsync(self, path, datasync, fh):
-        return os.fsync(fh)
-
+        if datasync != 0:
+          return os.fdatasync(fh)
+        else:
+          return os.fsync(fh)
+    
     def getattr(self, path, fh=None):
         st = os.lstat(path)
         return dict((key, getattr(st, key)) for key in ('st_atime', 'st_ctime',
