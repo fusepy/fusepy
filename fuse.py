@@ -565,7 +565,7 @@ class FUSE(object):
             'actual amount read %d greater than expected %d' % (retsize, size)
 
         data = create_string_buffer(ret, retsize)
-        memmove(buf, ret, retsize)
+        memmove(buf, data, retsize)
         return retsize
 
     def write(self, path, buf, size, offset, fip):
