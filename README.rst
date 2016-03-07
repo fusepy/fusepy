@@ -28,7 +28,7 @@ To get started download_ fusepy or just browse the source_.
 
 fusepy requires FUSE 2.6 (or later) and runs on:
 
-- Linux (i386, x86_64, PPC, arm64)
+- Linux (i386, x86_64, PPC, arm64, MIPS)
 - Mac OS X (Intel, PowerPC)
 - FreeBSD (i386, amd64)
 
