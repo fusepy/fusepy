@@ -220,7 +220,11 @@ class c_statvfs(Structure):
         ('f_bavail', c_fsblkcnt_t),
         ('f_files', c_fsfilcnt_t),
         ('f_ffree', c_fsfilcnt_t),
-        ('f_favail', c_fsfilcnt_t)]
+        ('f_favail', c_fsfilcnt_t),
+        ('f_fsid', c_ulong),
+        #('unused', c_int),
+        ('f_flag', c_ulong),
+        ('f_namemax', c_ulong)]
 
 if _system == 'FreeBSD':
     c_fsblkcnt_t = c_uint64
