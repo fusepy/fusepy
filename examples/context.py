@@ -1,4 +1,5 @@
 #!/usr/bin/env python
+from __future__ import print_function, absolute_import, division
 
 from errno import ENOENT
 from stat import S_IFDIR, S_IFREG

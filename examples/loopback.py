@@ -1,6 +1,5 @@
 #!/usr/bin/env python
-
-from __future__ import with_statement
+from __future__ import print_function, absolute_import, division
 
 from errno import EACCES
 from os.path import realpath
