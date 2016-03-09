@@ -1,9 +1,9 @@
 # Copyright (c) 2010 Giorgos Verigakis <verigak@gmail.com>
-# 
+#
 # Permission to use, copy, modify, and distribute this software for any
 # purpose with or without fee is hereby granted, provided that the above
 # copyright notice and this permission notice appear in all copies.
-# 
+#
 # THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES
 # WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
 # MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR
@@ -31,7 +31,7 @@ class LibFUSE(CDLL):
         if _system == 'Darwin':
             self.libiconv = CDLL(find_library('iconv'), RTLD_GLOBAL)
         super(LibFUSE, self).__init__(find_library('fuse'))
-        
+
         self.fuse_mount.argtypes = (c_char_p, POINTER(fuse_args))
         self.fuse_mount.restype = c_void_p
         self.fuse_lowlevel_new.argtypes = (POINTER(fuse_args), POINTER(fuse_lowlevel_ops),
@@ -44,17 +44,17 @@ class LibFUSE(CDLL):
         self.fuse_session_remove_chan.argtypes = (c_void_p,)
         self.fuse_session_destroy.argtypes = (c_void_p,)
         self.fuse_unmount.argtypes = (c_char_p, c_void_p)
-        
+
         self.fuse_req_ctx.restype = POINTER(fuse_ctx)
         self.fuse_req_ctx.argtypes = (fuse_req_t,)
-        
+
         self.fuse_reply_err.argtypes = (fuse_req_t, c_int)
         self.fuse_reply_attr.argtypes = (fuse_req_t, c_void_p, c_double)
         self.fuse_reply_entry.argtypes = (fuse_req_t, c_void_p)
         self.fuse_reply_open.argtypes = (fuse_req_t, c_void_p)
         self.fuse_reply_buf.argtypes = (fuse_req_t, c_char_p, c_size_t)
         self.fuse_reply_write.argtypes = (fuse_req_t, c_size_t)
-        
+
         self.fuse_add_direntry.argtypes = (c_void_p, c_char_p, c_size_t, c_char_p,
                                             c_stat_p, c_off_t)
 
@@ -101,7 +101,7 @@ elif _system == 'Linux':
     c_off_t = c_longlong
     c_pid_t = c_int
     c_uid_t = c_uint
-    
+
     if _machine == 'x86_64':
         c_stat._fields_ = [
             ('st_dev', c_dev_t),
@@ -300,72 +300,72 @@ def setattr_mask_to_list(mask):
 
 class FUSELL(object):
     def __init__(self, mountpoint):
-        self.libfuse = LibFUSE()       
-        
+        self.libfuse = LibFUSE()
+
         fuse_ops = fuse_lowlevel_ops()
-        
+
         for name, prototype in fuse_lowlevel_ops._fields_:
             method = getattr(self, 'fuse_' + name, None) or getattr(self, name, None)
             if method:
                 setattr(fuse_ops, name, prototype(method))
-        
+
         args = ['fuse']
         argv = fuse_args(len(args), (c_char_p * len(args))(*args), 0)
-        
+
         # TODO: handle initialization errors
-        
+
         chan = self.libfuse.fuse_mount(mountpoint, argv)
         assert chan
-        
+
         session = self.libfuse.fuse_lowlevel_new(argv, byref(fuse_ops), sizeof(fuse_ops), None)
         assert session
-        
+
         err = self.libfuse.fuse_set_signal_handlers(session)
         assert err == 0
-        
+
         self.libfuse.fuse_session_add_chan(session, chan)
-        
+
         err = self.libfuse.fuse_session_loop(session)
         assert err == 0
-        
+
         err = self.libfuse.fuse_remove_signal_handlers(session)
         assert err == 0
-        
+
         self.libfuse.fuse_session_remove_chan(chan)
         self.libfuse.fuse_session_destroy(session)
         self.libfuse.fuse_unmount(mountpoint, chan)
-    
+
     def reply_err(self, req, err):
         return self.libfuse.fuse_reply_err(req, err)
-    
+
     def reply_none(self, req):
         self.libfuse.fuse_reply_none(req)
-    
+
     def reply_entry(self, req, entry):
         entry['attr'] = c_stat(**entry['attr'])
         e = fuse_entry_param(**entry)
         self.libfuse.fuse_reply_entry(req, byref(e))
-    
+
     def reply_create(self, req, *args):
         pass    # XXX
-    
+
     def reply_attr(self, req, attr, attr_timeout):
         st = dict_to_stat(attr)
         return self.libfuse.fuse_reply_attr(req, byref(st), c_double(attr_timeout))
-    
+
     def reply_readlink(self, req, *args):
         pass    # XXX
-    
+
     def reply_open(self, req, d):
         fi = fuse_file_info(**d)
         return self.libfuse.fuse_reply_open(req, byref(fi))
-    
+
     def reply_write(self, req, count):
         return self.libfuse.fuse_reply_write(req, count)
-    
+
     def reply_buf(self, req, buf):
         return self.libfuse.fuse_reply_buf(req, buf, len(buf))
-    
+
     def reply_readdir(self, req, size, off, entries):
         bufsize = 0
         sized_entries = []
@@ -387,26 +387,26 @@ class FUSELL(object):
             return self.libfuse.fuse_reply_buf(req, buf, min(bufsize - off, size))
         else:
             return self.libfuse.fuse_reply_buf(req, None, 0)
-    
-    
+
+
     # If you override the following methods you should reply directly
     # with the self.libfuse.fuse_reply_* methods.
-    
+
     def fuse_getattr(self, req, ino, fi):
         self.getattr(req, ino, struct_to_dict(fi))
-    
+
     def fuse_setattr(self, req, ino, attr, to_set, fi):
         attr_dict = stat_to_dict(attr)
         to_set_list = setattr_mask_to_list(to_set)
         fi_dict = struct_to_dict(fi)
         self.setattr(req, ino, attr_dict, to_set_list, fi_dict)
-        
+
     def fuse_open(self, req, ino, fi):
         self.open(req, ino, struct_to_dict(fi))
-    
+
     def fuse_read(self, req, ino, size, off, fi):
         self.read(req, ino, size, off, fi)
-    
+
     def fuse_write(self, req, ino, buf, size, off, fi):
         buf_str = string_at(buf, size)
         fi_dict = struct_to_dict(fi)
@@ -414,62 +414,62 @@ class FUSELL(object):
 
     def fuse_flush(self, req, ino, fi):
         self.flush(req, ino, struct_to_dict(fi))
-    
+
     def fuse_release(self, req, ino, fi):
         self.release(req, ino, struct_to_dict(fi))
-    
+
     def fuse_fsync(self, req, ino, datasync, fi):
         self.fsyncdir(req, ino, datasync, struct_to_dict(fi))
-    
+
     def fuse_opendir(self, req, ino, fi):
         self.opendir(req, ino, struct_to_dict(fi))
-    
+
     def fuse_readdir(self, req, ino, size, off, fi):
         self.readdir(req, ino, size, off, struct_to_dict(fi))
-    
+
     def fuse_releasedir(self, req, ino, fi):
         self.releasedir(req, ino, struct_to_dict(fi))
-    
+
     def fuse_fsyncdir(self, req, ino, datasync, fi):
         self.fsyncdir(req, ino, datasync, struct_to_dict(fi))
-    
-    
+
+
     # Utility methods
-    
+
     def req_ctx(self, req):
         ctx = self.libfuse.fuse_req_ctx(req)
         return struct_to_dict(ctx)
-    
-    
+
+
     # Methods to be overridden in subclasses.
     # Reply with the self.reply_* methods.
-    
+
     def init(self, userdata, conn):
         """Initialize filesystem
-        
+
         There's no reply to this method
         """
         pass
 
     def destroy(self, userdata):
         """Clean up filesystem
-        
+
         There's no reply to this method
         """
         pass
 
     def lookup(self, req, parent, name):
         """Look up a directory entry by name and get its attributes.
-        
+
         Valid replies:
             reply_entry
             reply_err
         """
         self.reply_err(req, ENOENT)
-    
+
     def forget(self, req, ino, nlookup):
         """Forget about an inode
-        
+
         Valid replies:
             reply_none
         """
@@ -477,7 +477,7 @@ class FUSELL(object):
 
     def getattr(self, req, ino, fi):
         """Get file attributes
-        
+
         Valid replies:
             reply_attr
             reply_err
@@ -486,38 +486,38 @@ class FUSELL(object):
             attr = {'st_ino': 1, 'st_mode': S_IFDIR | 0755, 'st_nlink': 2}
             self.reply_attr(req, attr, 1.0)
         else:
-            self.reply_err(req, ENOENT)        
-    
+            self.reply_err(req, ENOENT)
+
     def setattr(self, req, ino, attr, to_set, fi):
         """Set file attributes
-        
+
         Valid replies:
             reply_attr
             reply_err
         """
         self.reply_err(req, EROFS)
-        
+
     def readlink(self, req, ino):
         """Read symbolic link
-        
+
         Valid replies:
             reply_readlink
             reply_err
         """
         self.reply_err(req, ENOENT)
-    
+
     def mknod(self, req, parent, name, mode, rdev):
         """Create file node
-        
+
         Valid replies:
             reply_entry
             reply_err
         """
         self.reply_err(req, EROFS)
-    
+
     def mkdir(self, req, parent, name, mode):
         """Create a directory
-        
+
         Valid replies:
             reply_entry
             reply_err
@@ -526,92 +526,92 @@ class FUSELL(object):
 
     def unlink(self, req, parent, name):
         """Remove a file
-        
+
         Valid replies:
             reply_err
         """
         self.reply_err(req, EROFS)
-    
+
     def rmdir(self, req, parent, name):
         """Remove a directory
-        
+
         Valid replies:
             reply_err
         """
         self.reply_err(req, EROFS)
-    
+
     def symlink(self, req, link, parent, name):
         """Create a symbolic link
-        
+
         Valid replies:
             reply_entry
             reply_err
         """
         self.reply_err(req, EROFS)
-    
+
     def rename(self, req, parent, name, newparent, newname):
         """Rename a file
-        
+
         Valid replies:
             reply_err
         """
         self.reply_err(req, EROFS)
-    
+
     def link(self, req, ino, newparent, newname):
         """Create a hard link
-        
+
         Valid replies:
             reply_entry
             reply_err
         """
         self.reply_err(req, EROFS)
-    
+
     def open(self, req, ino, fi):
         """Open a file
-        
+
         Valid replies:
             reply_open
             reply_err
         """
         self.reply_open(req, fi)
-    
+
     def read(self, req, ino, size, off, fi):
         """Read data
-        
+
         Valid replies:
             reply_buf
             reply_err
         """
         self.reply_err(req, EIO)
-        
+
     def write(self, req, ino, buf, off, fi):
         """Write data
-        
+
         Valid replies:
             reply_write
             reply_err
         """
         self.reply_err(req, EROFS)
-    
+
     def flush(self, req, ino, fi):
         """Flush method
-        
+
         Valid replies:
             reply_err
         """
         self.reply_err(req, 0)
-    
+
     def release(self, req, ino, fi):
         """Release an open file
-        
+
         Valid replies:
             reply_err
         """
         self.reply_err(req, 0)
-    
+
     def fsync(self, req, ino, datasync, fi):
         """Synchronize file contents
-        
+
         Valid replies:
             reply_err
         """
@@ -619,16 +619,16 @@ class FUSELL(object):
 
     def opendir(self, req, ino, fi):
         """Open a directory
-        
+
         Valid replies:
             reply_open
             reply_err
         """
         self.reply_open(req, fi)
-    
+
     def readdir(self, req, ino, size, off, fi):
         """Read directory
-        
+
         Valid replies:
             reply_readdir
             reply_err
@@ -639,10 +639,10 @@ class FUSELL(object):
             self.reply_readdir(req, size, off, entries)
         else:
             self.reply_err(req, ENOENT)
-    
+
     def releasedir(self, req, ino, fi):
         """Release an open directory
-        
+
         Valid replies:
             reply_err
         """
@@ -650,7 +650,7 @@ class FUSELL(object):
 
     def fsyncdir(self, req, ino, datasync, fi):
         """Synchronize directory contents
-        
+
         Valid replies:
             reply_err
         """
