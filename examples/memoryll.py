@@ -28,7 +28,7 @@ class Memory(FUSELL):
     forget = None
 
     def getattr(self, req, ino, fi):
-        print 'getattr:', ino
+        print('getattr:', ino)
         attr = self.attr[ino]
         if attr:
             self.reply_attr(req, attr, 1.0)
@@ -36,7 +36,7 @@ class Memory(FUSELL):
             self.reply_err(req, ENOENT)
 
     def lookup(self, req, parent, name):
-        print 'lookup:', parent, name
+        print('lookup:', parent, name)
         children = self.children[parent]
         ino = children.get(name, 0)
         attr = self.attr[ino]
@@ -48,7 +48,7 @@ class Memory(FUSELL):
             self.reply_err(req, ENOENT)
 
     def mkdir(self, req, parent, name, mode):
-        print 'mkdir:', parent, name
+        print('mkdir:', parent, name)
         ino = self.create_ino()
         ctx = self.req_ctx(req)
         now = time()
@@ -71,7 +71,7 @@ class Memory(FUSELL):
         self.reply_entry(req, entry)
 
     def mknod(self, req, parent, name, mode, rdev):
-        print 'mknod:', parent, name
+        print('mknod:', parent, name)
         ino = self.create_ino()
         ctx = self.req_ctx(req)
         now = time()
@@ -94,16 +94,16 @@ class Memory(FUSELL):
         self.reply_entry(req, entry)
 
     def open(self, req, ino, fi):
-        print 'open:', ino
+        print('open:', ino)
         self.reply_open(req, fi)
 
     def read(self, req, ino, size, off, fi):
-        print 'read:', ino, size, off
+        print('read:', ino, size, off)
         buf = self.data[ino][off:(off + size)]
         self.reply_buf(req, buf)
 
     def readdir(self, req, ino, size, off, fi):
-        print 'readdir:', ino
+        print('readdir:', ino)
         parent = self.parent[ino]
         entries = [('.', {'st_ino': ino, 'st_mode': S_IFDIR}),
             ('..', {'st_ino': parent, 'st_mode': S_IFDIR})]
@@ -112,14 +112,14 @@ class Memory(FUSELL):
         self.reply_readdir(req, size, off, entries)
 
     def rename(self, req, parent, name, newparent, newname):
-        print 'rename:', parent, name, newparent, newname
+        print('rename:', parent, name, newparent, newname)
         ino = self.children[parent].pop(name)
         self.children[newparent][newname] = ino
         self.parent[ino] = newparent
         self.reply_err(req, 0)
 
     def setattr(self, req, ino, attr, to_set, fi):
-        print 'setattr:', ino, to_set
+        print('setattr:', ino, to_set)
         a = self.attr[ino]
         for key in to_set:
             if key == 'st_mode':
@@ -131,13 +131,13 @@ class Memory(FUSELL):
         self.reply_attr(req, a, 1.0)
 
     def write(self, req, ino, buf, off, fi):
-        print 'write:', ino, off, len(buf)
+        print('write:', ino, off, len(buf))
         self.data[ino] = self.data[ino][:off] + buf
         self.attr[ino]['st_size'] = len(self.data[ino])
         self.reply_write(req, len(buf))
 
 if __name__ == '__main__':
     if len(argv) != 2:
-        print 'usage: %s <mountpoint>' % argv[0]
+        print('usage: %s <mountpoint>' % argv[0])
         exit(1)
     fuse = Memory(argv[1])
