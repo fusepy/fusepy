@@ -1,6 +1,8 @@
 #!/usr/bin/env python
 from __future__ import print_function, absolute_import, division
 
+import logging
+
 from errno import ENOENT
 from stat import S_IFDIR, S_IFREG
 from sys import argv, exit
@@ -62,5 +64,7 @@ if __name__ == '__main__':
     if len(argv) != 2:
         print('usage: %s <mountpoint>' % argv[0])
         exit(1)
+
+    logging.basicConfig(level=logging.DEBUG)
 
     fuse = FUSE(Context(), argv[1], foreground=True, ro=True)

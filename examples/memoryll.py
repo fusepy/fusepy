@@ -1,6 +1,8 @@
 #!/usr/bin/env python
 from __future__ import print_function, absolute_import, division
 
+import logging
+
 from collections import defaultdict
 from errno import ENOENT, EROFS
 from stat import S_IFMT, S_IMODE, S_IFDIR, S_IFREG
@@ -140,4 +142,7 @@ if __name__ == '__main__':
     if len(argv) != 2:
         print('usage: %s <mountpoint>' % argv[0])
         exit(1)
+
+    logging.basicConfig(level=logging.DEBUG)
+
     fuse = Memory(argv[1])

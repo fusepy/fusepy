@@ -1,6 +1,8 @@
 #!/usr/bin/env python
 from __future__ import print_function, absolute_import, division
 
+import logging
+
 from errno import EACCES
 from os.path import realpath
 from sys import argv, exit
@@ -97,5 +99,7 @@ if __name__ == '__main__':
     if len(argv) != 3:
         print('usage: %s <root> <mountpoint>' % argv[0])
         exit(1)
+
+    logging.basicConfig(level=logging.DEBUG)
 
     fuse = FUSE(Loopback(argv[1]), argv[2], foreground=True)
