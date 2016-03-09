@@ -21,7 +21,7 @@ class Memory(FUSELL):
         self.parent = {}
         self.children = defaultdict(dict)
         
-        self.attr[1] = {'st_ino': 1, 'st_mode': S_IFDIR | 0777, 'st_nlink': 2}
+        self.attr[1] = {'st_ino': 1, 'st_mode': S_IFDIR | 0o777, 'st_nlink': 2}
         self.parent[1] = 1
     
     forget = None
