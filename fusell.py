@@ -483,7 +483,7 @@ class FUSELL(object):
             reply_err
         """
         if ino == 1:
-            attr = {'st_ino': 1, 'st_mode': S_IFDIR | 0755, 'st_nlink': 2}
+            attr = {'st_ino': 1, 'st_mode': S_IFDIR | 0o755, 'st_nlink': 2}
             self.reply_attr(req, attr, 1.0)
         else:
             self.reply_err(req, ENOENT)        
