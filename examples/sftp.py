@@ -1,4 +1,7 @@
 #!/usr/bin/env python
+from __future__ import print_function, absolute_import, division
+
+import logging
 
 from sys import argv, exit
 from time import time
@@ -90,5 +93,7 @@ if __name__ == '__main__':
     if len(argv) != 3:
         print('usage: %s <host> <mountpoint>' % argv[0])
         exit(1)
+
+    logging.basicConfig(level=logging.DEBUG)
 
     fuse = FUSE(SFTP(argv[1]), argv[2], foreground=True, nothreads=True)
