@@ -370,6 +370,10 @@ class fuse_operations(Structure):
 
         ('utimens', CFUNCTYPE(c_int, c_char_p, POINTER(c_utimbuf))),
         ('bmap', CFUNCTYPE(c_int, c_char_p, c_size_t, POINTER(c_ulonglong))),
+        ('flag_nullpath_ok', c_uint, 1),
+        ('flag_nopath', c_uint, 1),
+        ('flag_utime_omit_ok', c_uint, 1),
+        ('flag_reserved', c_uint, 29),
     ]
 
 
@@ -441,10 +445,20 @@ class FUSE(object):
         argv = (c_char_p * len(args))(*args)
 
         fuse_ops = fuse_operations()
-        for name, prototype in fuse_operations._fields_:
-            if prototype != c_voidp and getattr(operations, name, None):
-                op = partial(self._wrapper, getattr(self, name))
-                setattr(fuse_ops, name, prototype(op))
+        for ent in fuse_operations._fields_:
+            name, prototype = ent[:2]
+
+            val = getattr(operations, name, None)
+            if val is None:
+                continue
+
+            # Function pointer members are tested for using the
+            # getattr(operations, name) above but are dynamically
+            # invoked using self.operations(name)
+            if hasattr(prototype, 'argtypes'):
+                val = prototype(partial(self._wrapper, getattr(self, name)))
+
+            setattr(fuse_ops, name, val)
 
         try:
             old_handler = signal(SIGINT, SIG_DFL)
@@ -482,6 +496,14 @@ class FUSE(object):
         except:
             print_exc()
             return -EFAULT
+
+    def _decode_optional_path(self, path):
+        # NB: this method is intended for fuse operations that
+        #     allow the path argument to be NULL,
+        #     *not* as a generic path decoding method
+        if path is None:
+            return None
+        return path.decode(self.encoding)
 
     def getattr(self, path, buf):
         return self.fgetattr(path, buf, None)
@@ -555,7 +577,7 @@ class FUSE(object):
         else:
           fh = fip.contents.fh
 
-        ret = self.operations('read', path.decode(self.encoding), size,
+        ret = self.operations('read', self._decode_optional_path(path), size,
                                       offset, fh)
 
         if not ret: return 0
@@ -576,7 +598,7 @@ class FUSE(object):
         else:
             fh = fip.contents.fh
 
-        return self.operations('write', path.decode(self.encoding), data,
+        return self.operations('write', self._decode_optional_path(path), data,
                                         offset, fh)
 
     def statfs(self, path, buf):
@@ -594,7 +616,7 @@ class FUSE(object):
         else:
             fh = fip.contents.fh
 
-        return self.operations('flush', path.decode(self.encoding), fh)
+        return self.operations('flush', self._decode_optional_path(path), fh)
 
     def release(self, path, fip):
         if self.raw_fi:
@@ -602,7 +624,7 @@ class FUSE(object):
         else:
           fh = fip.contents.fh
 
-        return self.operations('release', path.decode(self.encoding), fh)
+        return self.operations('release', self._decode_optional_path(path), fh)
 
     def fsync(self, path, datasync, fip):
         if self.raw_fi:
@@ -610,7 +632,7 @@ class FUSE(object):
         else:
             fh = fip.contents.fh
 
-        return self.operations('fsync', path.decode(self.encoding), datasync,
+        return self.operations('fsync', self._decode_optional_path(path), datasync,
                                         fh)
 
     def setxattr(self, path, name, value, size, options, *args):
@@ -665,7 +687,7 @@ class FUSE(object):
 
     def readdir(self, path, buf, filler, offset, fip):
         # Ignore raw_fi
-        for item in self.operations('readdir', path.decode(self.encoding),
+        for item in self.operations('readdir', self._decode_optional_path(path),
                                                fip.contents.fh):
 
             if isinstance(item, basestring):
@@ -685,12 +707,12 @@ class FUSE(object):
 
     def releasedir(self, path, fip):
         # Ignore raw_fi
-        return self.operations('releasedir', path.decode(self.encoding),
+        return self.operations('releasedir', self._decode_optional_path(path),
                                              fip.contents.fh)
 
     def fsyncdir(self, path, datasync, fip):
         # Ignore raw_fi
-        return self.operations('fsyncdir', path.decode(self.encoding),
+        return self.operations('fsyncdir', self._decode_optional_path(path),
                                            datasync, fip.contents.fh)
 
     def init(self, conn):
@@ -718,7 +740,7 @@ class FUSE(object):
         else:
             fh = fip.contents.fh
 
-        return self.operations('truncate', path.decode(self.encoding),
+        return self.operations('truncate', self._decode_optional_path(path),
                                            length, fh)
 
     def fgetattr(self, path, buf, fip):
@@ -732,7 +754,7 @@ class FUSE(object):
         else:
             fh = fip.contents.fh
 
-        attrs = self.operations('getattr', path.decode(self.encoding), fh)
+        attrs = self.operations('getattr', self._decode_optional_path(path), fh)
         set_st_attrs(st, attrs)
         return 0
 
@@ -742,7 +764,7 @@ class FUSE(object):
         else:
             fh = fip.contents.fh
 
-        return self.operations('lock', path.decode(self.encoding), fh, cmd,
+        return self.operations('lock', self._decode_optional_path(path), fh, cmd,
                                        lock)
 
     def utimens(self, path, buf):
