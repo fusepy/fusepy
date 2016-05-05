@@ -450,7 +450,14 @@ class FUSE(object):
         for ent in fuse_operations._fields_:
             name, prototype = ent[:2]
 
-            val = getattr(operations, name, None)
+            check_name = name
+
+            # ftruncate()/fgetattr() are implemented in terms of their
+            # non-f-prefixed versions in the operations object
+            if check_name in ["ftruncate", "fgetattr"]:
+                check_name = check_name[1:]
+
+            val = getattr(operations, check_name, None)
             if val is None:
                 continue
 
