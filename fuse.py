@@ -644,7 +644,8 @@ class FUSE(object):
 
     def getxattr(self, path, name, value, size, *args):
         ret = self.operations('getxattr', path.decode(self.encoding),
-                                          name.decode(self.encoding), *args)
+                                          name.decode(self.encoding), *args) \
+                  .encode(self.encoding)
 
         retsize = len(ret)
         # allow size queries
