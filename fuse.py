@@ -245,6 +245,35 @@ elif _system == 'Linux':
             ('st_mtimespec', c_timespec),
             ('st_ctimespec', c_timespec),
             ('st_ino', c_ulonglong)]
+elif _system.startswith('CYGWIN'):
+    ENOTSUP = 134
+    c_dev_t = c_uint
+    c_fsblkcnt_t = c_ulong
+    c_fsfilcnt_t = c_ulong
+    c_gid_t = c_uint
+    c_mode_t = c_uint
+    c_off_t = c_longlong
+    c_pid_t = c_int
+    c_uid_t = c_uint
+    setxattr_t = CFUNCTYPE(c_int, c_char_p, c_char_p, POINTER(c_byte),
+                           c_size_t, c_int)
+    getxattr_t = CFUNCTYPE(c_int, c_char_p, c_char_p, POINTER(c_byte),
+                           c_size_t)
+    c_stat._fields_ = [
+        ('st_dev', c_dev_t),
+        ('st_ino', c_ulonglong),
+        ('st_mode', c_mode_t),
+        ('st_nlink', c_ushort),
+        ('st_uid', c_uid_t),
+        ('st_gid', c_gid_t),
+        ('st_rdev', c_dev_t),
+        ('st_size', c_off_t),
+        ('st_atimespec', c_timespec),
+        ('st_mtimespec', c_timespec),
+        ('st_ctimespec', c_timespec),
+        ('st_blksize', c_int),
+        ('st_blocks', c_longlong),
+        ('st_birthtimespec', c_timespec)]
 else:
     raise NotImplementedError('%s is not supported.' % _system)
 
