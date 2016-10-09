@@ -90,6 +90,8 @@ class Memory(LoggingMixIn, Operations):
 
     def rename(self, old, new):
         self.files[new] = self.files.pop(old)
+        if old in self.data:
+            self.data[new] = self.data.pop(old)
 
     def rmdir(self, path):
         self.files.pop(path)
@@ -115,6 +117,8 @@ class Memory(LoggingMixIn, Operations):
 
     def unlink(self, path):
         self.files.pop(path)
+        if path in self.data:
+            self.data.pop(path)
 
     def utimens(self, path, times=None):
         now = time()
@@ -123,7 +127,7 @@ class Memory(LoggingMixIn, Operations):
         self.files[path]['st_mtime'] = mtime
 
     def write(self, path, data, offset, fh):
-        self.data[path] = self.data[path][:offset] + data
+        self.data[path] = self.data[path][:offset].ljust(offset, '\x00') + data + self.data[path][offset+len(data):]
         self.files[path]['st_size'] = len(self.data[path])
         return len(data)
 
