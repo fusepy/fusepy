@@ -112,7 +112,7 @@ class Memory(LoggingMixIn, Operations):
         self.data[target] = source
 
     def truncate(self, path, length, fh=None):
-        self.data[path] = self.data[path][:length]
+        self.data[path] = self.data[path][:length].ljust(length, '\x00')
         self.files[path]['st_size'] = length
 
     def unlink(self, path):
