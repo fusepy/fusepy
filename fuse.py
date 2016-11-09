@@ -374,6 +374,8 @@ class fuse_operations(Structure):
         ('flag_nopath', c_uint, 1),
         ('flag_utime_omit_ok', c_uint, 1),
         ('flag_reserved', c_uint, 29),
+        ('ioctl', CFUNCTYPE(c_int, c_char_p, c_uint, c_void_p,
+                            POINTER(fuse_file_info), c_uint, c_void_p)),
     ]
 
 
@@ -783,6 +785,14 @@ class FUSE(object):
         return self.operations('bmap', path.decode(self.encoding), blocksize,
                                        idx)
 
+    def ioctl(self, path, cmd, arg, fip, flags, data):
+        if self.raw_fi:
+          fh = fip.contents
+        else:
+          fh = fip.contents.fh
+
+        return self.operations('ioctl', path.decode(self.encoding),
+            cmd, arg, fh, flags, data)
 
 class Operations(object):
     '''
@@ -862,6 +872,9 @@ class Operations(object):
         '''
 
         pass
+
+    def ioctl(self, path, cmd, arg, fip, flags, data):
+        raise FuseOSError(ENOTTY)
 
     def link(self, target, source):
         'creates a hard link `target -> source` (e.g. ln source target)'
