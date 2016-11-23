@@ -53,6 +53,9 @@ class LibFUSE(CDLL):
         self.fuse_reply_open.argtypes = (fuse_req_t, c_void_p)
         self.fuse_reply_buf.argtypes = (fuse_req_t, c_char_p, c_size_t)
         self.fuse_reply_write.argtypes = (fuse_req_t, c_size_t)
+        self.fuse_reply_statfs.argtypes = (fuse_req_t, c_statvfs_p)
+        self.fuse_reply_xattr.argtypes = (fuse_req_t, c_size_t)
+        self.fuse_reply_create.argtypes = (fuse_req_t, c_void_p, c_void_p)
 
         self.fuse_add_direntry.argtypes = (c_void_p, c_char_p, c_size_t, c_char_p,
                                             c_stat_p, c_off_t)
@@ -260,7 +263,14 @@ class fuse_lowlevel_ops(Structure):
         ('opendir', CFUNCTYPE(None, fuse_req_t, fuse_ino_t, fuse_file_info_p)),
         ('readdir', CFUNCTYPE(None, fuse_req_t, fuse_ino_t, c_size_t, c_off_t, fuse_file_info_p)),
         ('releasedir', CFUNCTYPE(None, fuse_req_t, fuse_ino_t, fuse_file_info_p)),
-        ('fsyncdir', CFUNCTYPE(None, fuse_req_t, fuse_ino_t, c_int, fuse_file_info_p))]
+        ('fsyncdir', CFUNCTYPE(None, fuse_req_t, fuse_ino_t, c_int, fuse_file_info_p)),
+        ('statfs', CFUNCTYPE(None, fuse_req_t, fuse_ino_t)),
+        ('setxattr', CFUNCTYPE(None, fuse_req_t, fuse_ino_t, c_char_p, c_char_p, c_size_t, c_int)),
+        ('getxattr', CFUNCTYPE(None, fuse_req_t, fuse_ino_t, c_char_p, c_size_t)),
+        ('listxattr', CFUNCTYPE(None, fuse_req_t, fuse_ino_t, c_size_t)),
+        ('removexattr', CFUNCTYPE(None, fuse_req_t, fuse_ino_t, c_char_p)),
+        ('access', CFUNCTYPE(None, fuse_req_t, fuse_ino_t, c_int)),
+        ('create', CFUNCTYPE(None, fuse_req_t, fuse_ino_t, c_char_p, c_mode_t, fuse_file_info_p))]
 
 def stat_to_dict(p):
     try:
@@ -358,6 +368,30 @@ class FUSELL(object):
 
     def reply_buf(self, req, buf):
         return self.libfuse.fuse_reply_buf(req, buf, len(buf))
+
+    def reply_statfs(self, req, d):
+        s = statvfs(**d)
+        return self.libfuse.fuse_reply_statfs(req, s)
+
+    def reply_xattr(self, req, value, max_size):
+        if max_size == 0:
+            return self.libfuse.fuse_reply_xattr(req, len(value))
+        if len(value) > max_size:
+            return self.libfuse.fuse_reply_err(req, ERANGE)
+        return self.reply_buf(req, value)
+
+    def reply_listxattr(self, req, names, size):
+        buf = b"\0".join(names) + b"\0"
+        return self.reply_xattr(req, buf, size)
+
+    def reply_create(self, req, entry, fi=None):
+        entry['attr'] = c_stat(**entry['attr'])
+        e = fuse_entry_param(**entry)
+        if fi:
+            fi = fuse_file_info(**fi)
+        else:
+            fi = fuse_file_info()
+        self.libfuse.fuse_reply_create(req, byref(e), byref(fi))
 
     def reply_readdir(self, req, size, off, entries):
         bufsize = 0
@@ -471,6 +505,17 @@ class FUSELL(object):
         else:
             fi = fip.contents.fh
         self.fsyncdir(req, ino, datasync, fi)
+
+    def fuse_setxattr(self, req, ino, name, value_buf, value_size, flags):
+        value = string_at(value_buf, value_size)
+        self.setxattr(req, ino, name, value, flags)
+
+    def fuse_create(self, req, parent, name, mode, fip):
+        if self.raw_fi:
+            fi = fip.contents
+        else:
+            fi = fip.contents.flags
+        self.create(req, parent, name, mode, fi)
 
     # Utility methods
 
@@ -693,3 +738,64 @@ class FUSELL(object):
             reply_err
         """
         self.reply_err(req, 0)
+
+    def statfs(self, req, ino):
+        """Get filesystem information.
+
+        Valid replies:
+            reply_statfs
+            reply_err
+        """
+        self.reply_err(req, 0)
+
+    def setxattr(self, req, ino, name, value, flags):
+        """Set extended attribute.
+
+        Valid replies:
+            reply_err
+        """
+        self.reply_err(req, EROFS)
+
+    def getxattr(self, req, ino, name, size):
+        """Get extended attribute.
+
+        Valid replies:
+            reply_buf
+            reply_xattr
+            reply_err
+        """
+        self.reply_err(req, EIO)
+
+    def listxattr(self, req, ino, size):
+        """List extended attributes.
+
+        Valid replies:
+            reply_listxattr
+            reply_err
+        """
+        self.reply_err(req, 0)
+
+    def removexattr(self, req, ino, name):
+        """Remove extended attribute.
+
+        Valid replies:
+            reply_err
+        """
+        self.reply_err(req, EROFS)
+
+    def access(self, req, ino, mask):
+        """Return access permissions.
+
+        Valid replies:
+            reply_err
+        """
+        self.reply_err(req, 0)
+
+    def create(self, req, parent, name, mode, fi):
+        """Create a file.
+
+        Valid replies:
+            reply_create
+            reply_err
+        """
+        self.reply_err(req, EROFS)
