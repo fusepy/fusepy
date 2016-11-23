@@ -262,14 +262,6 @@ class fuse_lowlevel_ops(Structure):
         ('releasedir', CFUNCTYPE(None, fuse_req_t, fuse_ino_t, fuse_file_info_p)),
         ('fsyncdir', CFUNCTYPE(None, fuse_req_t, fuse_ino_t, c_int, fuse_file_info_p))]
 
-
-def struct_to_dict(p):
-    try:
-        x = p.contents
-        return dict((key, getattr(x, key)) for key, type in x._fields_)
-    except ValueError:
-        return {}
-
 def stat_to_dict(p):
     try:
         d = {}
@@ -298,8 +290,10 @@ def setattr_mask_to_list(mask):
     return [FUSE_SET_ATTR[i] for i in range(len(FUSE_SET_ATTR)) if mask & (1 << i)]
 
 class FUSELL(object):
-    def __init__(self, mountpoint):
+    def __init__(self, mountpoint, raw_fi=False):
         self.libfuse = LibFUSE()
+
+        self.raw_fi = raw_fi
 
         fuse_ops = fuse_lowlevel_ops()
 
@@ -345,9 +339,6 @@ class FUSELL(object):
         e = fuse_entry_param(**entry)
         self.libfuse.fuse_reply_entry(req, byref(e))
 
-    def reply_create(self, req, *args):
-        pass    # XXX
-
     def reply_attr(self, req, attr, attr_timeout):
         st = dict_to_stat(attr)
         return self.libfuse.fuse_reply_attr(req, byref(st), c_double(attr_timeout))
@@ -355,8 +346,11 @@ class FUSELL(object):
     def reply_readlink(self, req, *args):
         pass    # XXX
 
-    def reply_open(self, req, d):
-        fi = fuse_file_info(**d)
+    def reply_open(self, req, fi=None):
+        if fi:
+            fi = fuse_file_info()
+        else:
+            fi = fuse_file_info(**fi)
         return self.libfuse.fuse_reply_open(req, byref(fi))
 
     def reply_write(self, req, count):
@@ -391,53 +385,98 @@ class FUSELL(object):
     # If you override the following methods you should reply directly
     # with the self.libfuse.fuse_reply_* methods.
 
-    def fuse_getattr(self, req, ino, fi):
-        self.getattr(req, ino, struct_to_dict(fi))
+    def fuse_getattr(self, req, ino, fip):
+        if self.raw_fi:
+            fi = fip.contents
+        else:
+            fi = fip.contents.fh
+        self.getattr(req, ino, fi)
 
-    def fuse_setattr(self, req, ino, attr, to_set, fi):
+    def fuse_setattr(self, req, ino, attr, to_set, fip):
         attr_dict = stat_to_dict(attr)
         to_set_list = setattr_mask_to_list(to_set)
-        fi_dict = struct_to_dict(fi)
-        self.setattr(req, ino, attr_dict, to_set_list, fi_dict)
+        if self.raw_fi:
+            fi = fip.contents
+        else:
+            fi = fip.contents.fh
+        self.setattr(req, ino, attr_dict, to_set_list, fi)
 
-    def fuse_open(self, req, ino, fi):
-        self.open(req, ino, struct_to_dict(fi))
+    def fuse_open(self, req, ino, fip):
+        if self.raw_fi:
+            fi = fip.contents
+        else:
+            fi = fip.contents.flags
+        self.open(req, ino, fi)
 
-    def fuse_read(self, req, ino, size, off, fi):
+    def fuse_read(self, req, ino, size, off, fip):
+        if self.raw_fi:
+            fi = fip.contents
+        else:
+            fi = fip.contents.fh
         self.read(req, ino, size, off, fi)
 
-    def fuse_write(self, req, ino, buf, size, off, fi):
+    def fuse_write(self, req, ino, buf, size, off, fip):
         buf_str = string_at(buf, size)
-        fi_dict = struct_to_dict(fi)
-        self.write(req, ino, buf_str, off, fi_dict)
+        if self.raw_fi:
+            fi = fip.contents
+        else:
+            fi = fip.contents.fh
+        self.write(req, ino, buf_str, off, fi)
 
-    def fuse_flush(self, req, ino, fi):
-        self.flush(req, ino, struct_to_dict(fi))
+    def fuse_flush(self, req, ino, fip):
+        if self.raw_fi:
+            fi = fip.contents
+        else:
+            fi = fip.contents.fh
+        self.flush(req, ino, fi)
 
-    def fuse_release(self, req, ino, fi):
-        self.release(req, ino, struct_to_dict(fi))
+    def fuse_release(self, req, ino, fip):
+        if self.raw_fi:
+            fi = fip.contents
+        else:
+            fi = fip.contents.fh
+        self.release(req, ino, fi)
 
-    def fuse_fsync(self, req, ino, datasync, fi):
-        self.fsyncdir(req, ino, datasync, struct_to_dict(fi))
+    def fuse_fsync(self, req, ino, datasync, fip):
+        if self.raw_fi:
+            fi = fip.contents
+        else:
+            fi = fip.contents.fh
+        self.fsyncdir(req, ino, datasync, fi)
 
-    def fuse_opendir(self, req, ino, fi):
-        self.opendir(req, ino, struct_to_dict(fi))
+    def fuse_opendir(self, req, ino, fip):
+        if self.raw_fi:
+            fi = fip.contents
+        else:
+            fi = fip.contents.fh
+        self.opendir(req, ino, fi)
 
-    def fuse_readdir(self, req, ino, size, off, fi):
-        self.readdir(req, ino, size, off, struct_to_dict(fi))
+    def fuse_readdir(self, req, ino, size, off, fip):
+        if self.raw_fi:
+            fi = fip.contents
+        else:
+            fi = fip.contents.fh
+        self.readdir(req, ino, size, off, fi)
 
-    def fuse_releasedir(self, req, ino, fi):
-        self.releasedir(req, ino, struct_to_dict(fi))
+    def fuse_releasedir(self, req, ino, fip):
+        if self.raw_fi:
+            fi = fip.contents
+        else:
+            fi = fip.contents.fh
+        self.releasedir(req, ino, fi)
 
-    def fuse_fsyncdir(self, req, ino, datasync, fi):
-        self.fsyncdir(req, ino, datasync, struct_to_dict(fi))
-
+    def fuse_fsyncdir(self, req, ino, datasync, fip):
+        if self.raw_fi:
+            fi = fip.contents
+        else:
+            fi = fip.contents.fh
+        self.fsyncdir(req, ino, datasync, fi)
 
     # Utility methods
 
     def req_ctx(self, req):
         ctx = self.libfuse.fuse_req_ctx(req)
-        return struct_to_dict(ctx)
+        return ctx.contents
 
 
     # Methods to be overridden in subclasses.
@@ -572,7 +611,7 @@ class FUSELL(object):
             reply_open
             reply_err
         """
-        self.reply_open(req, fi)
+        self.reply_open(req)
 
     def read(self, req, ino, size, off, fi):
         """Read data
@@ -623,7 +662,7 @@ class FUSELL(object):
             reply_open
             reply_err
         """
-        self.reply_open(req, fi)
+        self.reply_open(req)
 
     def readdir(self, req, ino, size, off, fi):
         """Read directory
