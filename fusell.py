@@ -416,7 +416,7 @@ class FUSELL(object):
         return self.reply_buf(req, value)
 
     def reply_listxattr(self, req, names, size):
-        buf = b"\0".join([self.encode(name) for name in names]) + b"\0"
+        buf = b"".join(self.encode(name) + b"\0" for name in names)
         return self.reply_xattr(req, buf, size)
 
     def reply_create(self, req, entry, fi=None):
