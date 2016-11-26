@@ -20,6 +20,7 @@ from functools import partial, wraps
 from inspect import getmembers, ismethod
 from platform import machine, system
 from stat import S_IFDIR, S_IFREG
+import os
 
 
 _system = system()
@@ -318,9 +319,24 @@ def setattr_mask_to_list(mask):
     return [FUSE_SET_ATTR[i] for i in range(len(FUSE_SET_ATTR)) if mask & (1 << i)]
 
 class FUSELL(object):
-    def __init__(self, mountpoint, raw_fi=False):
+    def __init__(self, mountpoint, raw_fi=False, encoding='utf-8', encode=None,
+                 decode=None):
         self.libfuse = LibFUSE()
 
+        if encode is None:
+            if hasattr(os, 'fsencode'):
+                encode = os.fsencode
+            else:
+                encode = lambda s: s.encode(self.encoding)
+        if decode is None:
+            if hasattr(os, 'fsdecode'):
+                decode = os.fsdecode
+            else:
+                decode = lambda s: s.decode(self.encoding)
+
+        self.encoding = encoding
+        self.encode = encode
+        self.decode = decode
         self.raw_fi = raw_fi
 
         fuse_ops = fuse_lowlevel_ops()
@@ -331,11 +347,12 @@ class FUSELL(object):
                 setattr(fuse_ops, name, prototype(method))
 
         args = ['fuse']
+        args = [self.encode(arg) for arg in args]
         argv = fuse_args(len(args), (c_char_p * len(args))(*args), 0)
 
         # TODO: handle initialization errors
 
-        chan = self.libfuse.fuse_mount(mountpoint, argv)
+        chan = self.libfuse.fuse_mount(self.encode(mountpoint), argv)
         assert chan
 
         session = self.libfuse.fuse_lowlevel_new(argv, byref(fuse_ops), sizeof(fuse_ops), None)
@@ -399,7 +416,7 @@ class FUSELL(object):
         return self.reply_buf(req, value)
 
     def reply_listxattr(self, req, names, size):
-        buf = b"\0".join(names) + b"\0"
+        buf = b"\0".join([self.encode(name) for name in names]) + b"\0"
         return self.reply_xattr(req, buf, size)
 
     def reply_create(self, req, entry, fi=None):
@@ -415,6 +432,7 @@ class FUSELL(object):
         bufsize = 0
         sized_entries = []
         for name, attr in entries:
+            name = self.encode(name)
             entsize = self.libfuse.fuse_add_direntry(req, None, 0, name, None, 0)
             sized_entries.append((name, attr, entsize))
             bufsize += entsize
@@ -437,6 +455,9 @@ class FUSELL(object):
     # If you override the following methods you should reply directly
     # with the self.libfuse.fuse_reply_* methods.
 
+    def fuse_lookup(self, req, parent, name):
+        self.lookup(req, parent, self.decode(name))
+
     def fuse_getattr(self, req, ino, fip):
         if self.raw_fi:
             fi = fip.contents
@@ -452,6 +473,28 @@ class FUSELL(object):
         else:
             fi = fip.contents.fh
         self.setattr(req, ino, attr_dict, to_set_list, fi)
+
+    def fuse_mknod(self, req, parent, name, mode, rdev):
+        self.mknod(req, parent, self.decode(name), mode, rdev)
+
+    def fuse_mkdir(self, req, parent, name, mode):
+        self.mkdir(req, parent, self.decode(name), mode)
+
+    def fuse_unlink(self, req, parent, name):
+        self.unlink(req, parent, self.decode(name))
+
+    def fuse_rmdir(self, req, parent, name):
+        self.rmdir(req, parent, self.decode(name))
+
+    def fuse_symlink(self, req, link, parent, name):
+        self.symlink(req, link, parent, self.decode(name))
+
+    def fuse_rename(self, req, parent, name, newparent, newname):
+        self.rename(
+            req, parent, self.decode(name), newparent, self.decode(newname))
+
+    def fuse_link(self, req, ino, newparent, newname):
+        self.link(req, ino, newparent, self.decode(newname))
 
     def fuse_open(self, req, ino, fip):
         if self.raw_fi:
@@ -526,14 +569,20 @@ class FUSELL(object):
 
     def fuse_setxattr(self, req, ino, name, value_buf, value_size, flags):
         value = string_at(value_buf, value_size)
-        self.setxattr(req, ino, name, value, flags)
+        self.setxattr(req, ino, self.decode(name), value, flags)
+
+    def fuse_getxattr(self, req, ino, name, size):
+        self.getxattr(req, ino, self.decode(name), size)
+
+    def fuse_removexattr(self, req, ino, name):
+        self.removexattr(self, req, ino, self.decode(name))
 
     def fuse_create(self, req, parent, name, mode, fip):
         if self.raw_fi:
             fi = fip.contents
         else:
             fi = fip.contents.flags
-        self.create(req, parent, name, mode, fi)
+        self.create(req, parent, self.decode(name), mode, fi)
 
     # Utility methods
 
