@@ -20,7 +20,9 @@ from functools import partial, wraps
 from inspect import getmembers, ismethod
 from platform import machine, system
 from stat import S_IFDIR, S_IFREG
+import contextlib
 import os
+import signal
 
 
 _system = system()
@@ -338,8 +340,8 @@ class FUSELL(object):
         self.encode = encode
         self.decode = decode
         self.raw_fi = raw_fi
-        self.mountpoint = self.encode(mountpoint)
 
+        mountpoint = self.encode(mountpoint)
         fuse_ops = fuse_lowlevel_ops()
 
         for name, prototype in fuse_lowlevel_ops._fields_:
@@ -351,28 +353,63 @@ class FUSELL(object):
         args = [self.encode(arg) for arg in args]
         argv = fuse_args(len(args), (c_char_p * len(args))(*args), 0)
 
-        # TODO: handle initialization errors
+        @contextlib.contextmanager
+        def make_chan():
+            chan = self.libfuse.fuse_mount(mountpoint, argv)
+            assert chan
+            try:
+                yield chan
+            finally:
+                self.libfuse.fuse_unmount(mountpoint, chan)
 
-        chan = self.libfuse.fuse_mount(self.mountpoint, argv)
-        assert chan
+        @contextlib.contextmanager
+        def make_session():
+            session = self.libfuse.fuse_lowlevel_new(argv, byref(fuse_ops), sizeof(fuse_ops), None)
+            assert session
+            try:
+                yield session
+            finally:
+                self.libfuse.fuse_session_destroy(session)
 
-        session = self.libfuse.fuse_lowlevel_new(argv, byref(fuse_ops), sizeof(fuse_ops), None)
-        assert session
+        @contextlib.contextmanager
+        def connect_chan_to_session(chan, session):
+            self.libfuse.fuse_session_add_chan(session, chan)
+            try:
+                yield
+            finally:
+                self.libfuse.fuse_session_remove_chan(chan)
 
-        err = self.libfuse.fuse_set_signal_handlers(session)
-        assert err == 0
+        @contextlib.contextmanager
+        def use_fuse_signal_handlers(session):
+            err = self.libfuse.fuse_set_signal_handlers(session)
+            assert err == 0
+            try:
+                yield
+            finally:
+                err = self.libfuse.fuse_remove_signal_handlers(session)
+                assert err == 0
 
-        self.libfuse.fuse_session_add_chan(session, chan)
+        @contextlib.contextmanager
+        def python_default_signals():
+            try:
+                old_handler = signal.signal(signal.SIGINT, signal.SIG_DFL)
+            except ValueError:
+                old_handler = signal.SIG_DFL
+            try:
+                yield
+            finally:
+                try:
+                    signal.signal(signal.SIGINT, old_handler)
+                except ValueError:
+                    pass
 
-        err = self.libfuse.fuse_session_loop(session)
-        assert err == 0
-
-        err = self.libfuse.fuse_remove_signal_handlers(session)
-        assert err == 0
-
-        self.libfuse.fuse_session_remove_chan(chan)
-        self.libfuse.fuse_session_destroy(session)
-        self.libfuse.fuse_unmount(self.mountpoint, chan)
+        with make_chan() as chan:
+            with make_session() as session:
+                with connect_chan_to_session(chan, session):
+                    with python_default_signals():
+                        with use_fuse_signal_handlers(session):
+                            err = self.libfuse.fuse_session_loop(session)
+                            assert err == 0
 
     def reply_err(self, req, err):
         return self.libfuse.fuse_reply_err(req, err)
