@@ -742,7 +742,7 @@ class FUSELL(object):
         Valid replies:
             reply_err
         """
-        self.reply_err(req, 0)
+        self.reply_err(req, ENOSYS)
 
     def release(self, req, ino, fi):
         """Release an open file
@@ -758,7 +758,7 @@ class FUSELL(object):
         Valid replies:
             reply_err
         """
-        self.reply_err(req, 0)
+        self.reply_err(req, ENOSYS)
 
     def opendir(self, req, ino, fi):
         """Open a directory
@@ -797,7 +797,7 @@ class FUSELL(object):
         Valid replies:
             reply_err
         """
-        self.reply_err(req, 0)
+        self.reply_err(req, ENOSYS)
 
     def statfs(self, req, ino):
         """Get filesystem information.
@@ -814,7 +814,7 @@ class FUSELL(object):
         Valid replies:
             reply_err
         """
-        self.reply_err(req, EROFS)
+        self.reply_err(req, ENOSYS)
 
     def getxattr(self, req, ino, name, size):
         """Get extended attribute.
@@ -824,7 +824,7 @@ class FUSELL(object):
             reply_xattr
             reply_err
         """
-        self.reply_err(req, EIO)
+        self.reply_err(req, ENOSYS)
 
     def listxattr(self, req, ino, size):
         """List extended attributes.
@@ -833,7 +833,7 @@ class FUSELL(object):
             reply_listxattr
             reply_err
         """
-        self.reply_err(req, 0)
+        self.reply_err(req, ENOSYS)
 
     def removexattr(self, req, ino, name):
         """Remove extended attribute.
@@ -841,7 +841,7 @@ class FUSELL(object):
         Valid replies:
             reply_err
         """
-        self.reply_err(req, EROFS)
+        self.reply_err(req, ENOSYS)
 
     def access(self, req, ino, mask):
         """Return access permissions.
@@ -849,7 +849,7 @@ class FUSELL(object):
         Valid replies:
             reply_err
         """
-        self.reply_err(req, 0)
+        self.reply_err(req, ENOSYS)
 
     def create(self, req, parent, name, mode, fi):
         """Create a file.
@@ -858,4 +858,4 @@ class FUSELL(object):
             reply_create
             reply_err
         """
-        self.reply_err(req, EROFS)
+        self.reply_err(req, ENOSYS)
