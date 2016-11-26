@@ -534,7 +534,7 @@ class FUSELL(object):
         self.link(req, ino, newparent, self.decode(newname))
 
     def fuse_open(self, req, ino, fip):
-        self.open(req, ino, self.get_fi(fip))
+        self.open(req, ino, fip.contents)
 
     def fuse_read(self, req, ino, size, off, fip):
         self.read(req, ino, size, off, self.get_fi(fip))
@@ -553,7 +553,7 @@ class FUSELL(object):
         self.fsyncdir(req, ino, datasync, self.get_fi(fip))
 
     def fuse_opendir(self, req, ino, fip):
-        self.opendir(req, ino, self.get_fi(fip))
+        self.opendir(req, ino)
 
     def fuse_readdir(self, req, ino, size, off, fip):
         self.readdir(req, ino, size, off, self.get_fi(fip))
@@ -575,7 +575,7 @@ class FUSELL(object):
         self.removexattr(self, req, ino, self.decode(name))
 
     def fuse_create(self, req, parent, name, mode, fip):
-        self.create(req, parent, self.decode(name), mode, self.get_fi(fip))
+        self.create(req, parent, self.decode(name), mode, fip.contents)
 
     # Utility methods
 
@@ -760,7 +760,7 @@ class FUSELL(object):
         """
         self.reply_err(req, ENOSYS)
 
-    def opendir(self, req, ino, fi):
+    def opendir(self, req, ino):
         """Open a directory
 
         Valid replies:
