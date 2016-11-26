@@ -393,9 +393,9 @@ class FUSELL(object):
 
     def reply_open(self, req, fi=None):
         if fi:
-            fi = fuse_file_info()
-        else:
             fi = fuse_file_info(**fi)
+        else:
+            fi = fuse_file_info()
         return self.libfuse.fuse_reply_open(req, byref(fi))
 
     def reply_write(self, req, count):
@@ -455,24 +455,23 @@ class FUSELL(object):
     # If you override the following methods you should reply directly
     # with the self.libfuse.fuse_reply_* methods.
 
+    def get_fi(self, fip):
+        if not fip:
+            return None
+        if self.raw_fi:
+            return fip.contents
+        return fip.contents.fh
+
     def fuse_lookup(self, req, parent, name):
         self.lookup(req, parent, self.decode(name))
 
     def fuse_getattr(self, req, ino, fip):
-        if self.raw_fi:
-            fi = fip.contents
-        else:
-            fi = fip.contents.fh
-        self.getattr(req, ino, fi)
+        self.getattr(req, ino, self.get_fi(fip))
 
     def fuse_setattr(self, req, ino, attr, to_set, fip):
         attr_dict = stat_to_dict(attr)
         to_set_list = setattr_mask_to_list(to_set)
-        if self.raw_fi:
-            fi = fip.contents
-        else:
-            fi = fip.contents.fh
-        self.setattr(req, ino, attr_dict, to_set_list, fi)
+        self.setattr(req, ino, attr_dict, to_set_list, self.get_fi(fip))
 
     def fuse_mknod(self, req, parent, name, mode, rdev):
         self.mknod(req, parent, self.decode(name), mode, rdev)
@@ -497,75 +496,35 @@ class FUSELL(object):
         self.link(req, ino, newparent, self.decode(newname))
 
     def fuse_open(self, req, ino, fip):
-        if self.raw_fi:
-            fi = fip.contents
-        else:
-            fi = fip.contents.flags
-        self.open(req, ino, fi)
+        self.open(req, ino, self.get_fi(fip))
 
     def fuse_read(self, req, ino, size, off, fip):
-        if self.raw_fi:
-            fi = fip.contents
-        else:
-            fi = fip.contents.fh
-        self.read(req, ino, size, off, fi)
+        self.read(req, ino, size, off, self.get_fi(fip))
 
     def fuse_write(self, req, ino, buf, size, off, fip):
         buf_str = string_at(buf, size)
-        if self.raw_fi:
-            fi = fip.contents
-        else:
-            fi = fip.contents.fh
-        self.write(req, ino, buf_str, off, fi)
+        self.write(req, ino, buf_str, off, self.get_fi(fip))
 
     def fuse_flush(self, req, ino, fip):
-        if self.raw_fi:
-            fi = fip.contents
-        else:
-            fi = fip.contents.fh
-        self.flush(req, ino, fi)
+        self.flush(req, ino, self.get_fi(fip))
 
     def fuse_release(self, req, ino, fip):
-        if self.raw_fi:
-            fi = fip.contents
-        else:
-            fi = fip.contents.fh
-        self.release(req, ino, fi)
+        self.release(req, ino, self.get_fi(fip))
 
     def fuse_fsync(self, req, ino, datasync, fip):
-        if self.raw_fi:
-            fi = fip.contents
-        else:
-            fi = fip.contents.fh
-        self.fsyncdir(req, ino, datasync, fi)
+        self.fsyncdir(req, ino, datasync, self.get_fi(fip))
 
     def fuse_opendir(self, req, ino, fip):
-        if self.raw_fi:
-            fi = fip.contents
-        else:
-            fi = fip.contents.fh
-        self.opendir(req, ino, fi)
+        self.opendir(req, ino, self.get_fi(fip))
 
     def fuse_readdir(self, req, ino, size, off, fip):
-        if self.raw_fi:
-            fi = fip.contents
-        else:
-            fi = fip.contents.fh
-        self.readdir(req, ino, size, off, fi)
+        self.readdir(req, ino, size, off, self.get_fi(fip))
 
     def fuse_releasedir(self, req, ino, fip):
-        if self.raw_fi:
-            fi = fip.contents
-        else:
-            fi = fip.contents.fh
-        self.releasedir(req, ino, fi)
+        self.releasedir(req, ino, self.get_fi(fip))
 
     def fuse_fsyncdir(self, req, ino, datasync, fip):
-        if self.raw_fi:
-            fi = fip.contents
-        else:
-            fi = fip.contents.fh
-        self.fsyncdir(req, ino, datasync, fi)
+        self.fsyncdir(req, ino, datasync, self.get_fi(fip))
 
     def fuse_setxattr(self, req, ino, name, value_buf, value_size, flags):
         value = string_at(value_buf, value_size)
@@ -578,11 +537,7 @@ class FUSELL(object):
         self.removexattr(self, req, ino, self.decode(name))
 
     def fuse_create(self, req, parent, name, mode, fip):
-        if self.raw_fi:
-            fi = fip.contents
-        else:
-            fi = fip.contents.flags
-        self.create(req, parent, self.decode(name), mode, fi)
+        self.create(req, parent, self.decode(name), mode, self.get_fi(fip))
 
     # Utility methods
 
