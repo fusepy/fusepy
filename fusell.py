@@ -69,6 +69,9 @@ class c_timespec(Structure):
 class c_stat(Structure):
     pass    # Platform dependent
 
+class c_statvfs(Structure):
+    pass    # Platform dependent
+
 if _system == 'Darwin':
     ENOTSUP = 45
     c_dev_t = c_int32
@@ -120,6 +123,18 @@ elif _system == 'Linux':
             ('st_atimespec', c_timespec),
             ('st_mtimespec', c_timespec),
             ('st_ctimespec', c_timespec)]
+        c_statvfs._fields = [
+            ('f_bsize', c_ulong),
+            ('f_frsize', c_ulong),
+            ('f_blocks', c_fsblkcnt_t),
+            ('f_bfree', c_fsblkcnt_t),
+            ('f_bavail', c_fsblkcnt_t),
+            ('f_files', c_fsfilcnt_t),
+            ('f_ffree', c_fsfilcnt_t),
+            ('f_favail', c_fsfilcnt_t),
+            ('f_fsid', c_ulong),
+            ('f_flag', c_ulong),
+            ('f_namemax', c_ulong)]
     elif _machine == 'mips':
         c_stat._fields_ = [
             ('st_dev', c_dev_t),
@@ -193,19 +208,21 @@ elif _system == 'Linux':
             ('st_mtimespec', c_timespec),
             ('st_ctimespec', c_timespec),
             ('st_ino', c_ulonglong)]
+        c_statvfs._fields = [
+            ('f_bsize', c_ulong),
+            ('f_frsize', c_ulong),
+            ('f_blocks', c_fsblkcnt_t),
+            ('f_bfree', c_fsblkcnt_t),
+            ('f_bavail', c_fsblkcnt_t),
+            ('f_files', c_fsfilcnt_t),
+            ('f_ffree', c_fsfilcnt_t),
+            ('f_favail', c_fsfilcnt_t),
+            ('f_fsid', c_ulong),
+            ('__f_unused', c_int),
+            ('f_flag', c_ulong),
+            ('f_namemax', c_ulong)]
 else:
     raise NotImplementedError('%s is not supported.' % _system)
-
-class c_statvfs(Structure):
-    _fields_ = [
-        ('f_bsize', c_ulong),
-        ('f_frsize', c_ulong),
-        ('f_blocks', c_fsblkcnt_t),
-        ('f_bfree', c_fsblkcnt_t),
-        ('f_bavail', c_fsblkcnt_t),
-        ('f_files', c_fsfilcnt_t),
-        ('f_ffree', c_fsfilcnt_t),
-        ('f_favail', c_fsfilcnt_t)]
 
 class fuse_file_info(Structure):
     _fields_ = [
@@ -225,6 +242,7 @@ class fuse_ctx(Structure):
 fuse_ino_t = c_ulong
 fuse_req_t = c_void_p
 c_stat_p = POINTER(c_stat)
+c_statvfs_p = POINTER(c_statvfs)
 fuse_file_info_p = POINTER(fuse_file_info)
 
 FUSE_SET_ATTR = ('st_mode', 'st_uid', 'st_gid', 'st_size', 'st_atime', 'st_mtime')
