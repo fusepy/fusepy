@@ -338,6 +338,7 @@ class FUSELL(object):
         self.encode = encode
         self.decode = decode
         self.raw_fi = raw_fi
+        self.mountpoint = self.encode(mountpoint)
 
         fuse_ops = fuse_lowlevel_ops()
 
@@ -352,7 +353,7 @@ class FUSELL(object):
 
         # TODO: handle initialization errors
 
-        chan = self.libfuse.fuse_mount(self.encode(mountpoint), argv)
+        chan = self.libfuse.fuse_mount(self.mountpoint, argv)
         assert chan
 
         session = self.libfuse.fuse_lowlevel_new(argv, byref(fuse_ops), sizeof(fuse_ops), None)
@@ -371,7 +372,7 @@ class FUSELL(object):
 
         self.libfuse.fuse_session_remove_chan(chan)
         self.libfuse.fuse_session_destroy(session)
-        self.libfuse.fuse_unmount(mountpoint, chan)
+        self.libfuse.fuse_unmount(self.mountpoint, chan)
 
     def reply_err(self, req, err):
         return self.libfuse.fuse_reply_err(req, err)
