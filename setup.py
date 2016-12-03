@@ -9,14 +9,14 @@ with open('README') as readme:
 
 setup(
     name = 'fusepy',
-    version = '2.0.4',
+    version = '3.0.0',
 
     description = 'Simple ctypes bindings for FUSE',
     long_description = documentation,
     author = 'Giorgos Verigakis',
     author_email = 'verigak@gmail.com',
-    maintainer = 'Terence Honles',
-    maintainer_email = 'terence@honles.com',
+    maintainer = 'AllSeeingEyeTolledEweSew',
+    maintainer_email = 'allseeingeyetolledewesew@protonmail.com',
     license = 'ISC',
     py_modules=['fuse', 'fusell'],
     url = 'http://github.com/terencehonles/fusepy',
