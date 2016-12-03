@@ -47,6 +47,7 @@ class LibFUSE(CDLL):
         self.fuse_req_ctx.restype = POINTER(fuse_ctx)
         self.fuse_req_ctx.argtypes = (fuse_req_t,)
 
+        self.fuse_reply_none.argtypes = (fuse_req_t,)
         self.fuse_reply_err.argtypes = (fuse_req_t, c_int)
         self.fuse_reply_attr.argtypes = (fuse_req_t, c_void_p, c_double)
         self.fuse_reply_entry.argtypes = (fuse_req_t, c_void_p)
