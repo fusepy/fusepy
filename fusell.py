@@ -42,6 +42,7 @@ class LibFUSE(CDLL):
         self.fuse_set_signal_handlers.argtypes = (c_void_p,)
         self.fuse_session_add_chan.argtypes = (c_void_p, c_void_p)
         self.fuse_session_loop.argtypes = (c_void_p,)
+        self.fuse_session_loop_mt.argtypes = (c_void_p,)
         self.fuse_remove_signal_handlers.argtypes = (c_void_p,)
         self.fuse_session_remove_chan.argtypes = (c_void_p,)
         self.fuse_session_destroy.argtypes = (c_void_p,)
@@ -323,7 +324,7 @@ def setattr_mask_to_list(mask):
 
 class FUSELL(object):
     def __init__(self, mountpoint, raw_fi=False, encoding='utf-8', encode=None,
-                 decode=None):
+                 decode=None, nothreads=False, debug=False, **kwargs):
         self.libfuse = LibFUSE()
 
         if encode is None:
@@ -351,6 +352,14 @@ class FUSELL(object):
                 setattr(fuse_ops, name, prototype(method))
 
         args = ['fuse']
+
+        if debug:
+            args.append('-d')
+
+        kwargs.setdefault('fsname', self.__class__.__name__)
+        args.append('-o')
+        args.append(','.join(self._normalize_fuse_options(**kwargs)))
+
         args = [self.encode(arg) for arg in args]
         argv = fuse_args(len(args), (c_char_p * len(args))(*args), 0)
 
@@ -409,8 +418,20 @@ class FUSELL(object):
                 with connect_chan_to_session(chan, session):
                     with python_default_signals():
                         with use_fuse_signal_handlers(session):
-                            err = self.libfuse.fuse_session_loop(session)
+                            if nothreads:
+                                err = self.libfuse.fuse_session_loop(session)
+                            else:
+                                err = self.libfuse.fuse_session_loop_mt(
+                                    session)
                             assert err == 0
+
+    @staticmethod
+    def _normalize_fuse_options(**kargs):
+        for key, value in kargs.items():
+            if isinstance(value, bool):
+                if value is True: yield key
+            else:
+                yield '%s=%s' % (key, value)
 
     def reply_err(self, req, err):
         return self.libfuse.fuse_reply_err(req, err)
