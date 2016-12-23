@@ -94,6 +94,7 @@ class Memory(LoggingMixIn, Operations):
             self.data[new] = self.data.pop(old)
 
     def rmdir(self, path):
+        # with multiple level support, need to raise ENOTEMPTY if contains any files
         self.files.pop(path)
         self.files['/']['st_nlink'] -= 1
 
