@@ -4,7 +4,7 @@ from __future__ import with_statement
 
 from setuptools import setup
 
-with open('README') as readme:
+with open('README.rst') as readme:
     documentation = readme.read()
 
 setup(
