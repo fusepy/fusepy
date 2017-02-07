@@ -307,6 +307,45 @@ class fuse_context(Structure):
 
 _libfuse.fuse_get_context.restype = POINTER(fuse_context)
 
+FUSE_CAP_ASYNC_READ = (1 << 0)
+FUSE_CAP_POSIX_LOCKS = (1 << 1)
+FUSE_CAP_ATOMIC_O_TRUNC = (1 << 3)
+FUSE_CAP_EXPORT_SUPPORT = (1 << 4)
+FUSE_CAP_BIG_WRITES = (1 << 5)
+FUSE_CAP_DONT_MASK = (1 << 6)
+
+
+class fuse_conn_info(Structure):
+    _fields_ = [
+        ('proto_major', c_uint),
+        ('proto_minor', c_uint),
+        ('async_read', c_uint),
+        ('max_write', c_uint),
+        ('max_readahead', c_uint),
+        ('capable', c_uint),
+        ('want', c_uint),
+        ('reserved', c_uint, 25)]
+
+    def __repr__(self):
+        flags = [(FUSE_CAP_ASYNC_READ, 'async-read'),
+                 (FUSE_CAP_POSIX_LOCKS, 'posix-locks'),
+                 (FUSE_CAP_ATOMIC_O_TRUNC, 'atomic-o-trunc'),
+                 (FUSE_CAP_EXPORT_SUPPORT, 'export-support'),
+                 (FUSE_CAP_BIG_WRITES, 'big-writes'),
+                 (FUSE_CAP_DONT_MASK, 'dont-mask')]
+
+        def flags2string(f):
+            sl = []
+            for i, s in flags:
+                if (f & i) > 0:
+                    sl.append(s)
+            return ",".join(sl)
+
+        capable = flags2string(self.capable)
+        want = flags2string(self.want)
+        return "fuse_conn_info (proto=%d.%d async_read=%d max_write=%d max_readahead=%d capable=%s want=%s)" % (
+        self.proto_major, self.proto_minor, self.async_read, self.max_write, self.max_readahead, capable, want)
+
 
 class fuse_operations(Structure):
     _fields_ = [
@@ -341,18 +380,12 @@ class fuse_operations(Structure):
         ('listxattr', CFUNCTYPE(c_int, c_char_p, POINTER(c_byte), c_size_t)),
         ('removexattr', CFUNCTYPE(c_int, c_char_p, c_char_p)),
         ('opendir', CFUNCTYPE(c_int, c_char_p, POINTER(fuse_file_info))),
-
-        ('readdir', CFUNCTYPE(c_int, c_char_p, c_voidp,
-                              CFUNCTYPE(c_int, c_voidp, c_char_p,
-                                        POINTER(c_stat), c_off_t),
-                              c_off_t, POINTER(fuse_file_info))),
-
+        ('readdir', CFUNCTYPE(c_int, c_char_p, c_voidp, CFUNCTYPE(c_int, c_voidp,
+                                                                  c_char_p, POINTER(c_stat), c_off_t), c_off_t,
+                              POINTER(fuse_file_info))),
         ('releasedir', CFUNCTYPE(c_int, c_char_p, POINTER(fuse_file_info))),
-
-        ('fsyncdir', CFUNCTYPE(c_int, c_char_p, c_int,
-                               POINTER(fuse_file_info))),
-
-        ('init', CFUNCTYPE(c_voidp, c_voidp)),
+        ('fsyncdir', CFUNCTYPE(c_int, c_char_p, c_int, POINTER(fuse_file_info))),
+        ('init', CFUNCTYPE(c_voidp, POINTER(fuse_conn_info))),
         ('destroy', CFUNCTYPE(c_voidp, c_voidp)),
         ('access', CFUNCTYPE(c_int, c_char_p, c_int)),
 
@@ -419,8 +452,8 @@ class FUSE(object):
         ('nothreads', '-s'),
     )
 
-    def __init__(self, operations, mountpoint, raw_fi=False, encoding='utf-8',
-                 **kwargs):
+    def __init__(self, operations, mountpoint, raw_fi=False, encoding='utf-8', async_read=None, posix_locks=None, atomic_o_trunc=None,
+                 export_support=None, big_writes=None, dont_mask=None, max_write=4096, max_readhead=4096, **kwargs):
 
         '''
         Setting raw_fi to True will cause FUSE to pass the fuse_file_info
@@ -432,6 +465,8 @@ class FUSE(object):
         self.operations = operations
         self.raw_fi = raw_fi
         self.encoding = encoding
+        self.max_write = max_write
+        self.max_readhead = max_readhead
 
         args = ['fuse']
 
@@ -445,6 +480,14 @@ class FUSE(object):
 
         args = [arg.encode(encoding) for arg in args]
         argv = (c_char_p * len(args))(*args)
+
+        self.want = 0
+        if async_read:     self.want |= FUSE_CAP_ASYNC_READ
+        if posix_locks:    self.want |= FUSE_CAP_POSIX_LOCKS
+        if atomic_o_trunc: self.want |= FUSE_CAP_ATOMIC_O_TRUNC
+        if export_support: self.want |= FUSE_CAP_EXPORT_SUPPORT
+        if big_writes:     self.want |= FUSE_CAP_BIG_WRITES
+        if dont_mask:      self.want |= FUSE_CAP_DONT_MASK
 
         fuse_ops = fuse_operations()
         for ent in fuse_operations._fields_:
@@ -717,7 +760,12 @@ class FUSE(object):
         return self.operations('fsyncdir', self._decode_optional_path(path),
                                            datasync, fip.contents.fh)
 
-    def init(self, conn):
+    def init(self, ci):
+        ci = ci.contents
+        ci.want |= self.want
+        ci.max_write = self.max_write
+        ci.max_readahead = self.max_readhead
+        print(ci)
         return self.operations('init', '/')
 
     def destroy(self, private_data):
