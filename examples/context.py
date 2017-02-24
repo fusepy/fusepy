@@ -45,7 +45,7 @@ class Context(LoggingMixIn, Operations):
 
         raise RuntimeError('unexpected path: %r' % path)
 
-    def readdir(self, path, fh):
+    def readdir(self, path, offset, fh):
         return ['.', '..', 'uid', 'gid', 'pid']
 
     # Disable unused operations:

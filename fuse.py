@@ -690,6 +690,7 @@ class FUSE(object):
     def readdir(self, path, buf, filler, offset, fip):
         # Ignore raw_fi
         for item in self.operations('readdir', self._decode_optional_path(path),
+                                               offset,
                                                fip.contents.fh):
 
             if isinstance(item, basestring):
@@ -902,7 +903,7 @@ class Operations(object):
 
         raise FuseOSError(EIO)
 
-    def readdir(self, path, fh):
+    def readdir(self, path, offset, fh):
         '''
         Can return either a list of names, or a list of (name, attrs, offset)
         tuples. attrs is a dict as in getattr.

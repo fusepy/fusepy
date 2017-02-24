@@ -4,10 +4,11 @@ from __future__ import print_function, absolute_import, division
 import logging
 
 from collections import defaultdict
-from errno import ENOENT
+from errno import ENOENT, EACCES
 from stat import S_IFDIR, S_IFLNK, S_IFREG
 from sys import argv, exit
 from time import time
+from itertools import islice, count, izip
 
 from fuse import FUSE, FuseOSError, Operations, LoggingMixIn
 
@@ -61,11 +62,12 @@ class Memory(LoggingMixIn, Operations):
         return attrs.keys()
 
     def mkdir(self, path, mode):
-        self.files[path] = dict(st_mode=(S_IFDIR | mode), st_nlink=2,
-                                st_size=0, st_ctime=time(), st_mtime=time(),
-                                st_atime=time())
-
-        self.files['/']['st_nlink'] += 1
+        # This module doesn't support directories
+        raise FuseOSError(EACCES)
+        # self.files[path] = dict(st_mode=(S_IFDIR | mode), st_nlink=2,
+        #                         st_size=0, st_ctime=time(), st_mtime=time(),
+        #                         st_atime=time())
+        # self.files['/']['st_nlink'] += 1
 
     def open(self, path, flags):
         self.fd += 1
@@ -74,8 +76,14 @@ class Memory(LoggingMixIn, Operations):
     def read(self, path, size, offset, fh):
         return self.data[path][offset:offset + size]
 
-    def readdir(self, path, fh):
-        return ['.', '..'] + [x[1:] for x in self.files if x != '/']
+    def readdir(self, path, offset, fh):
+        # We don't care about '..' here
+        if offset >= len(self.files) - 1: return
+        mitems = 10 # output 10 items max
+        items = islice(sorted(self.files.keys()), offset, offset+mitems)
+        for idx, name in izip(count(offset+1), items):
+            iname = '.' if name == '/' else name[1:]
+            yield (iname, self.files[name], idx)
 
     def readlink(self, path):
         return self.data[path]

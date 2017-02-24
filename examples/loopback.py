@@ -65,7 +65,7 @@ class Loopback(LoggingMixIn, Operations):
 
     readlink = os.readlink
 
-    def release(self, path, fh):
+    def release(self, path, offset, fh):
         return os.close(fh)
 
     def rename(self, old, new):

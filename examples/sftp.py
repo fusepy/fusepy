@@ -56,7 +56,7 @@ class SFTP(LoggingMixIn, Operations):
         f.close()
         return buf
 
-    def readdir(self, path, fh):
+    def readdir(self, path, offset, fh):
         return ['.', '..'] + [name.encode('utf-8')
                               for name in self.sftp.listdir(path)]
 
