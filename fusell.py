@@ -19,6 +19,7 @@ from errno import *
 from functools import partial, wraps
 from inspect import getmembers, ismethod
 from platform import machine, system
+from signal import signal, SIGINT, SIG_DFL
 from stat import S_IFDIR, S_IFREG
 
 
@@ -319,6 +320,11 @@ class FUSELL(object):
         session = self.libfuse.fuse_lowlevel_new(argv, byref(fuse_ops), sizeof(fuse_ops), None)
         assert session
 
+        try:
+            old_handler = signal(SIGINT, SIG_DFL)
+        except ValueError:
+            old_handler = SIG_DFL
+
         err = self.libfuse.fuse_set_signal_handlers(session)
         assert err == 0
 
@@ -329,6 +335,11 @@ class FUSELL(object):
 
         err = self.libfuse.fuse_remove_signal_handlers(session)
         assert err == 0
+
+        try:
+            signal(SIGINT, old_handler)
+        except ValueError:
+            pass
 
         self.libfuse.fuse_session_remove_chan(chan)
         self.libfuse.fuse_session_destroy(session)
