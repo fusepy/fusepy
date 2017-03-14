@@ -46,6 +46,23 @@ try:
 except NameError:
     basestring = str
 
+_system = system()
+_machine = machine()
+
+if _system == 'Windows':
+    # NOTE:
+    #
+    # sizeof(long)==4 on Windows 32-bit and 64-bit
+    # sizeof(long)==4 on Cygwin 32-bit and ==8 on Cygwin 64-bit
+    #
+    # We have to fix up c_long and c_ulong so that it matches the
+    # Cygwin (and UNIX) sizes when run on Windows. The alternative
+    # would be to modify every structure below that uses c_long and
+    # c_ulong.
+    import sys
+    c_long = c_int64 if sys.maxsize > 0xffffffff else c_int32
+    c_ulong = c_uint64 if sys.maxsize > 0xffffffff else c_uint32
+
 class c_timespec(Structure):
     _fields_ = [('tv_sec', c_long), ('tv_nsec', c_long)]
 
@@ -55,13 +72,26 @@ class c_utimbuf(Structure):
 class c_stat(Structure):
     pass    # Platform dependent
 
-_system = system()
-_machine = machine()
-
 if _system == 'Darwin':
     _libiconv = CDLL(find_library('iconv'), RTLD_GLOBAL) # libfuse dependency
     _libfuse_path = (find_library('fuse4x') or find_library('osxfuse') or
                      find_library('fuse'))
+elif _system == 'Windows':
+    import _winreg as reg
+    def Reg32GetValue(rootkey, keyname, valname):
+        key, val = None, None
+        try:
+            key = reg.OpenKey(rootkey, keyname, 0, reg.KEY_READ | reg.KEY_WOW64_32KEY)
+            val = str(reg.QueryValueEx(key, valname)[0])
+        except WindowsError:
+            pass
+        finally:
+            if key is not None:
+                reg.CloseKey(key)
+        return val
+    _libfuse_path = Reg32GetValue(reg.HKEY_LOCAL_MACHINE, r"SOFTWARE\WinFsp", r"InstallDir")
+    if _libfuse_path:
+        _libfuse_path += r"bin\winfsp-%s.dll" % ("x64" if sys.maxsize > 0xffffffff else "x86")
 else:
     _libfuse_path = find_library('fuse')
 
@@ -245,8 +275,8 @@ elif _system == 'Linux':
             ('st_mtimespec', c_timespec),
             ('st_ctimespec', c_timespec),
             ('st_ino', c_ulonglong)]
-elif _system.startswith('CYGWIN'):
-    ENOTSUP = 134
+elif _system == 'Windows' or _system.startswith('CYGWIN'):
+    ENOTSUP = 129 if _system == 'Windows' else 134
     c_dev_t = c_uint
     c_fsblkcnt_t = c_ulong
     c_fsfilcnt_t = c_ulong
