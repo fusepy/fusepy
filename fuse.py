@@ -355,17 +355,30 @@ class fuse_conn_info(Structure):
         ('capable', c_uint),
         ('want', c_uint)]
 
-class fuse_file_info(Structure):
-    _fields_ = [
-        ('flags', c_int),
-        ('fh_old', c_ulong),
-        ('writepage', c_int),
-        ('direct_io', c_uint, 1),
-        ('keep_cache', c_uint, 1),
-        ('flush', c_uint, 1),
-        ('padding', c_uint, 29),
-        ('fh', c_uint64),
-        ('lock_owner', c_uint64)]
+if _system == 'Windows' or _system.startswith('CYGWIN'):
+    class fuse_file_info(Structure):
+        _fields_ = [
+            ('flags', c_int),
+            ('fh_old', c_int),
+            ('writepage', c_int),
+            ('direct_io', c_uint, 1),
+            ('keep_cache', c_uint, 1),
+            ('flush', c_uint, 1),
+            ('padding', c_uint, 29),
+            ('fh', c_uint64),
+            ('lock_owner', c_uint64)]
+else:
+    class fuse_file_info(Structure):
+        _fields_ = [
+            ('flags', c_int),
+            ('fh_old', c_ulong),
+            ('writepage', c_int),
+            ('direct_io', c_uint, 1),
+            ('keep_cache', c_uint, 1),
+            ('flush', c_uint, 1),
+            ('padding', c_uint, 29),
+            ('fh', c_uint64),
+            ('lock_owner', c_uint64)]
 
 class fuse_context(Structure):
     _fields_ = [
