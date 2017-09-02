@@ -77,7 +77,10 @@ if _system == 'Darwin':
     _libfuse_path = (find_library('fuse4x') or find_library('osxfuse') or
                      find_library('fuse'))
 elif _system == 'Windows':
-    import _winreg as reg
+    try:
+        import _winreg as reg
+    except ImportError:
+        import winreg as reg
     def Reg32GetValue(rootkey, keyname, valname):
         key, val = None, None
         try:
