@@ -1,0 +1,17 @@
+Source: python-fusepy
+Section: python
+Priority: optional
+Maintainer: ross andrus <andrus@skytap.com>
+Build-Depends: debhelper (>=7), python (>= 2.6.0)
+XS-Python-Version: >=2.6
+Homepage: https://github.com/terencehonles/fusepy
+Standards-Version: 3.9.3
+
+Package: python-fusepy
+Architecture: all
+XB-Python-Version: ${python:Versions}
+Provides: ${python:Provides}
+Depends: ${python:Depends}, ${misc:Depends}
+Description: Better FUSE binding for python
+ Yah, here's the longer description.
+
