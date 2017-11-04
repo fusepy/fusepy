@@ -1,5 +1,3 @@
-# Copyright (c) 2014 Skytap Inc.,
-# All Rights Reserved.
 
 DESTDIR=build/
 VERSION=$(shell dpkg-parsechangelog | grep Version | cut -d ' ' -f 2)

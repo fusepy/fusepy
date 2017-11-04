@@ -1,0 +1,9 @@
+Notes on building a .deb package for python-fusepy
+
+Requirements:
+  sudo apt-get install python-stdeb fakeroot python-all
+
+To Build:
+  ./debian-build.sh
+
+Look for output in build/<os-ver>/python-fusepy
