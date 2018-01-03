@@ -9,7 +9,7 @@ with open('README') as readme:
 
 setup(
     name = 'fusepy',
-    version = '2.0.4',
+    version = '2.0.99',
 
     description = 'Simple ctypes bindings for FUSE',
     long_description = documentation,
