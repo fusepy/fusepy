@@ -710,7 +710,7 @@ class FUSE(object):
                 name, attrs, offset = item
                 if attrs:
                     st = c_stat()
-                    set_st_attrs(st, attrs)
+                    set_st_attrs(st, attrs, self.with_nanosecond_int)
                 else:
                     st = None
 
@@ -769,7 +769,7 @@ class FUSE(object):
             fh = fip.contents.fh
 
         attrs = self.operations('getattr', self._decode_optional_path(path), fh)
-        set_st_attrs(st, attrs)
+        set_st_attrs(st, attrs, self.with_nanosecond_int)
         return 0
 
     def lock(self, path, fip, cmd, lock):
