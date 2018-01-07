@@ -376,6 +376,8 @@ class fuse_operations(Structure):
         ('flag_reserved', c_uint, 29),
     ]
 
+# When importing "fuse", you can check this with "hasattr(fuse, 'NANOSECOND_INT_AVAILABLE')"
+NANOSECOND_INT_AVAILABLE = True
 
 def time_of_timespec(ts):
     return int(ts.tv_sec) * 10 ** 9 + int(ts.tv_nsec)
