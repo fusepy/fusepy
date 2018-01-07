@@ -442,6 +442,8 @@ class FUSE(object):
         self.operations = operations
         self.raw_fi = raw_fi
         self.encoding = encoding
+        
+        self.with_nanosecond_int = hasattr(operations, 'WITH_NANOSECOND_INT')
 
         args = ['fuse']
 
