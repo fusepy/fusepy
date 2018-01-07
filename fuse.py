@@ -23,6 +23,7 @@ from platform import machine, system
 from signal import signal, SIGINT, SIG_DFL
 from stat import S_IFDIR
 from traceback import print_exc
+from math import floor
 
 import logging
 
@@ -379,17 +380,24 @@ class fuse_operations(Structure):
 # When importing "fuse", you can check this with "hasattr(fuse, 'NANOSECOND_INT_AVAILABLE')"
 NANOSECOND_INT_AVAILABLE = True
 
-def time_of_timespec(ts):
-    return int(ts.tv_sec) * 10 ** 9 + int(ts.tv_nsec)
+def time_of_timespec(ts, nanosecond_int = False): # nanosecond_int is opt-in by default
+    if nanosecond_int:
+        return int(ts.tv_sec) * 10 ** 9 + int(ts.tv_nsec) # NEW STYLE: returns time as int in nanoseconds
+    else:
+        return ts.tv_sec + ts.tv_nsec / 10 ** 9 # OLD STYLE: returns time as float in seconds
 
-def set_st_attrs(st, attrs):
+def set_st_attrs(st, attrs, nanosecond_int = False): # nanosecond_int is opt-in by default
     for key, val in attrs.items():
         if key in ('st_atime', 'st_mtime', 'st_ctime', 'st_birthtime'):
             timespec = getattr(st, key + 'spec', None)
             if timespec is None:
                 continue
-            timespec.tv_sec = int(val)
-            timespec.tv_nsec = int(attrs[key + '_ns'])
+            if nanosecond_int: # NEW STYLE: expects time as an int in nanoseconds
+                timespec.tv_sec = int(floor(val / 10 ** 9))
+                timespec.tv_nsec = int(val) - timespec.tv_sec * 10 ** 9
+            else: # OLD STYLE: expects time as a float in seconds
+                timespec.tv_sec = int(val)
+                timespec.tv_nsec = int((val - timespec.tv_sec) * 10 ** 9)
         elif hasattr(st, key):
             setattr(st, key, val)
 
