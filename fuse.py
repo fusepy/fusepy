@@ -783,8 +783,8 @@ class FUSE(object):
 
     def utimens(self, path, buf):
         if buf:
-            atime = time_of_timespec(buf.contents.actime)
-            mtime = time_of_timespec(buf.contents.modtime)
+            atime = time_of_timespec(buf.contents.actime, self.with_nanosecond_int)
+            mtime = time_of_timespec(buf.contents.modtime, self.with_nanosecond_int)
             times = (atime, mtime)
         else:
             times = None
