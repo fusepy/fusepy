@@ -48,7 +48,7 @@ class Loopback(LoggingMixIn, Operations):
     getxattr = None
 
     def link(self, target, source):
-        return os.link(source, target)
+        return os.link( self.root + source, target)
 
     listxattr = None
     mkdir = os.mkdir
