@@ -44,7 +44,7 @@ class Memory(FUSELL):
         attr = self.attr[ino]
 
         if attr:
-            entry = {'ino': ino, 'attr': attr, 'atttr_timeout': 1.0, 'entry_timeout': 1.0}
+            entry = {'ino': ino, 'attr': attr, 'attr_timeout': 1.0, 'entry_timeout': 1.0}
             self.reply_entry(req, entry)
         else:
             self.reply_err(req, ENOENT)
@@ -69,7 +69,7 @@ class Memory(FUSELL):
         self.parent[ino] = parent
         self.children[parent][name] = ino
 
-        entry = {'ino': ino, 'attr': attr, 'atttr_timeout': 1.0, 'entry_timeout': 1.0}
+        entry = {'ino': ino, 'attr': attr, 'attr_timeout': 1.0, 'entry_timeout': 1.0}
         self.reply_entry(req, entry)
 
     def mknod(self, req, parent, name, mode, rdev):
@@ -92,7 +92,7 @@ class Memory(FUSELL):
         self.attr[parent]['st_nlink'] += 1
         self.children[parent][name] = ino
 
-        entry = {'ino': ino, 'attr': attr, 'atttr_timeout': 1.0, 'entry_timeout': 1.0}
+        entry = {'ino': ino, 'attr': attr, 'attr_timeout': 1.0, 'entry_timeout': 1.0}
         self.reply_entry(req, entry)
 
     def open(self, req, ino, fi):

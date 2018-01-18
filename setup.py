@@ -15,10 +15,10 @@ setup(
     long_description = documentation,
     author = 'Giorgos Verigakis',
     author_email = 'verigak@gmail.com',
-    maintainer = 'Terence Honles',
-    maintainer_email = 'terence@honles.com',
+    maintainer = 'AllSeeingEyeTolledEweSew',
+    maintainer_email = 'allseeingeyetolledewesew@protonmail.com',
     license = 'ISC',
-    py_modules=['fuse'],
+    py_modules=['fuse', 'fusell'],
     url = 'http://github.com/terencehonles/fusepy',
 
     classifiers = [
