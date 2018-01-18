@@ -18,7 +18,8 @@ from __future__ import print_function, absolute_import, division
 from ctypes import *
 from ctypes.util import find_library
 from errno import *
-from os import strerror
+from os import strerror, environ
+from os.path import join, exists
 from platform import machine, system
 from signal import signal, SIGINT, SIG_DFL
 from stat import S_IFDIR
@@ -58,12 +59,21 @@ class c_stat(Structure):
 _system = system()
 _machine = machine()
 
-if _system == 'Darwin':
-    _libiconv = CDLL(find_library('iconv'), RTLD_GLOBAL) # libfuse dependency
-    _libfuse_path = (find_library('fuse4x') or find_library('osxfuse') or
-                     find_library('fuse'))
+try:
+    _libfuse_root = environ['FUSE_LIBRARY_PATH']
+except KeyError:
+    if _system == 'Darwin':
+        _libiconv = CDLL(find_library('iconv'), RTLD_GLOBAL) # libfuse dependency
+        _libfuse_path = (find_library('fuse4x') or find_library('osxfuse') or
+                         find_library('fuse'))
+    else:
+        _libfuse_path = find_library('fuse')
 else:
-    _libfuse_path = find_library('fuse')
+    _lib_filename = environ.get('FUSE_LIBRARY_FILENAME', 'libfuse.so.2')
+    _libfuse_path = join(_libfuse_root, _lib_filename)
+
+    if exists(_libfuse_path) is False:
+        raise EnvironmentError("libfuse not found at prescribed place: %s" % (_libfuse_path))
 
 if not _libfuse_path:
     raise EnvironmentError('Unable to find libfuse')
