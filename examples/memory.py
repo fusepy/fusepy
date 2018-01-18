@@ -9,7 +9,7 @@ from stat import S_IFDIR, S_IFLNK, S_IFREG
 from sys import argv, exit
 from time import time
 
-from fuse import FUSE, FuseOSError, Operations, LoggingMixIn
+from fuse import FUSE, FuseOSError, Operations, LoggingMixIn, fuse_get_context
 
 if not hasattr(__builtins__, 'bytes'):
     bytes = str
@@ -22,7 +22,7 @@ class Memory(LoggingMixIn, Operations):
         self.data = defaultdict(bytes)
         self.fd = 0
         now = time()
-        self.files['/'] = dict(st_mode=(S_IFDIR | 0o755), st_ctime=now,
+        self.files['/'] = dict(st_mode=(S_IFDIR | 0o777), st_ctime=now,
                                st_mtime=now, st_atime=now, st_nlink=2)
 
     def chmod(self, path, mode):
@@ -35,9 +35,11 @@ class Memory(LoggingMixIn, Operations):
         self.files[path]['st_gid'] = gid
 
     def create(self, path, mode):
+        uid, gid, pid = fuse_get_context()
         self.files[path] = dict(st_mode=(S_IFREG | mode), st_nlink=1,
                                 st_size=0, st_ctime=time(), st_mtime=time(),
-                                st_atime=time())
+                                st_atime=time(),
+                                st_uid=uid, st_gid=gid)
 
         self.fd += 1
         return self.fd
@@ -61,9 +63,11 @@ class Memory(LoggingMixIn, Operations):
         return attrs.keys()
 
     def mkdir(self, path, mode):
+        uid, gid, pid = fuse_get_context()
         self.files[path] = dict(st_mode=(S_IFDIR | mode), st_nlink=2,
                                 st_size=0, st_ctime=time(), st_mtime=time(),
-                                st_atime=time())
+                                st_atime=time(),
+                                st_uid=uid, st_gid=gid)
 
         self.files['/']['st_nlink'] += 1
 
