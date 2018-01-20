@@ -24,6 +24,12 @@ from signal import signal, SIGINT, SIG_DFL
 from stat import S_IFDIR
 from traceback import print_exc
 
+from time import time
+try:
+	from time import time_ns
+except ImportError:
+	time_ns = lambda: int(time() * 1e9)
+
 import logging
 
 try:
@@ -376,18 +382,32 @@ class fuse_operations(Structure):
         ('flag_reserved', c_uint, 29),
     ]
 
+# When importing "fuse", you can check for the availability of features with
+# 	__features__.get('feature_name', False)
+__features__ = {
+	'nanosecond_int': True,
+	'utime_omit_none': True,
+	'utime_now_auto': True,
+	'libfuse2': True,	# Unused, demonstrating future use of __features__ dict
+	'libfuse3': False	# Unused, demonstrating future use of __features__ dict
+	}
 
-def time_of_timespec(ts):
-    return ts.tv_sec + ts.tv_nsec / 10 ** 9
+UTIME_OMIT = (1 << 30) - 2
+UTIME_NOW = (1 << 30) - 1
 
-def set_st_attrs(st, attrs):
+
+def set_st_attrs(st, attrs, nanosecond_int=False):
     for key, val in attrs.items():
         if key in ('st_atime', 'st_mtime', 'st_ctime', 'st_birthtime'):
             timespec = getattr(st, key + 'spec', None)
             if timespec is None:
                 continue
-            timespec.tv_sec = int(val)
-            timespec.tv_nsec = int((val - timespec.tv_sec) * 10 ** 9)
+            if nanosecond_int:
+                timespec.tv_sec = int(val // 1e9)
+                timespec.tv_nsec = int(val - timespec.tv_sec * 1e9)
+            else:
+                timespec.tv_sec = int(val)
+                timespec.tv_nsec = int((val - timespec.tv_sec) * 1e9)
         elif hasattr(st, key):
             setattr(st, key, val)
 
@@ -432,6 +452,10 @@ class FUSE(object):
         self.operations = operations
         self.raw_fi = raw_fi
         self.encoding = encoding
+
+        requested_features = getattr(operations, 'requested_features', {})
+        for feature_name in __features__.keys():
+            setattr(self, 'flag_' + feature_name, requested_features.get(feature_name, False) and __features__[feature_name])
 
         args = ['fuse']
 
@@ -698,7 +722,7 @@ class FUSE(object):
                 name, attrs, offset = item
                 if attrs:
                     st = c_stat()
-                    set_st_attrs(st, attrs)
+                    set_st_attrs(st, attrs, self.flag_nanosecond_int)
                 else:
                     st = None
 
@@ -757,7 +781,7 @@ class FUSE(object):
             fh = fip.contents.fh
 
         attrs = self.operations('getattr', self._decode_optional_path(path), fh)
-        set_st_attrs(st, attrs)
+        set_st_attrs(st, attrs, self.flag_nanosecond_int)
         return 0
 
     def lock(self, path, fip, cmd, lock):
@@ -770,11 +794,50 @@ class FUSE(object):
                                        lock)
 
     def utimens(self, path, buf):
+
+        def is_utime_now(ts):
+            return ts.tv_sec == 0 and ts.tv_nsec == UTIME_NOW
+
+        def is_utime_omit(ts):
+            return ts.tv_sec == 0 and ts.tv_nsec == UTIME_OMIT
+
+        def get_now():
+            if self.flag_nanosecond_int:
+                return time_ns()
+            else:
+                return time()
+
+        def time_of_timespec(ts):
+            if self.flag_nanosecond_int:
+                return int(ts.tv_sec * 1e9 + ts.tv_nsec)
+            else:
+                return ts.tv_sec + ts.tv_nsec * 1e-9
+
         if buf:
-            atime = time_of_timespec(buf.contents.actime)
-            mtime = time_of_timespec(buf.contents.modtime)
+
+            atime_ts = buf.contents.actime
+            mtime_ts = buf.contents.modtime
+
+            atime = time_of_timespec(atime_ts)
+            mtime = time_of_timespec(mtime_ts)
+
+            if self.flag_utime_now_auto:
+                now = get_now()
+                if is_utime_now(atime_ts):
+                    atime = now
+                if is_utime_now(mtime_ts):
+                    mtime = now
+
+            if self.flag_utime_omit_none:
+                if is_utime_omit(atime_ts):
+                    atime = None
+                if is_utime_omit(mtime_ts):
+                    mtime = None
+
             times = (atime, mtime)
+
         else:
+
             times = None
 
         return self.operations('utimens', path.decode(self.encoding), times)
