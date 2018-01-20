@@ -455,7 +455,7 @@ class FUSE(object):
 
         requested_features = getattr(operations, 'requested_features', {})
         for feature_name in __features__.keys():
-            setattr(self, 'flag_' + feature_name, requested_features.get(feature_name, False))
+            setattr(self, 'flag_' + feature_name, requested_features.get(feature_name, False) and __features__[feature_name])
 
         args = ['fuse']
 
