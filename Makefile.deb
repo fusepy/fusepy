@@ -1,0 +1,64 @@
+
+DESTDIR=build/
+VERSION=$(shell dpkg-parsechangelog | grep Version | cut -d ' ' -f 2)
+PKG_NAME=python-fusepy
+
+all: ../$(PKG_NAME)_$(VERSION)_all.deb
+
+../$(PKG_NAME)_$(VERSION)_all.deb:
+	dpkg-buildpackage -rfakeroot -uc -us
+
+local: ../$(PKG_NAME)_$(VERSION)_all.deb
+	sudo dpkg -i ../$(PKG_NAME)_$(VERSION)_all.deb
+	
+
+pkginstall: clean $(CHECKED_OUT_PACKAGES_REPO)/pool/$(PKG_NAME) $(CHECKED_OUT_PACKAGES_REPO)/pool-precise/$(PKG_NAME) ../$(PKG_NAME)_$(VERSION)_all.deb ../$(PKG_NAME)-$(VERSION).sol.tgz
+	@echo installing stuff into packages repository
+	cp ../$(PKG_NAME)_$(VERSION)_all.deb $(CHECKED_OUT_PACKAGES_REPO)/pool/$(PKG_NAME)
+	cp ../$(PKG_NAME)_$(VERSION)_all.deb $(CHECKED_OUT_PACKAGES_REPO)/pool-precise/$(PKG_NAME)
+	cp ../$(PKG_NAME)-$(VERSION).sol.tgz $(CHECKED_OUT_PACKAGES_REPO)/puppet/modules/skytap_support/files/$(PKG_NAME).tgz
+	@echo "Current $(PKG_NAME) version is $(VERSION)" > $(CHECKED_OUT_PACKAGES_REPO)/puppet/modules/skytap_support/files/$(PKG_NAME).version
+	hg --cwd $(CHECKED_OUT_PACKAGES_REPO) add $(CHECKED_OUT_PACKAGES_REPO)/pool/$(PKG_NAME)/$(PKG_NAME)_$(VERSION)_all.deb
+	hg --cwd $(CHECKED_OUT_PACKAGES_REPO) add $(CHECKED_OUT_PACKAGES_REPO)/pool-precise/$(PKG_NAME)/$(PKG_NAME)_$(VERSION)_all.deb
+	hg --cwd $(CHECKED_OUT_PACKAGES_REPO) add $(CHECKED_OUT_PACKAGES_REPO)/puppet/modules/skytap_support/files/$(PKG_NAME).tgz
+
+	cd $(CHECKED_OUT_PACKAGES_REPO) && ./update-archive.sh
+
+	@echo Now you can commit your changes to packages repository
+
+install:
+	mkdir -p $(DESTDIR)
+	mkdir -p $(DESTDIR)/opt/skytap/etc/init $(DESTDIR)/opt/skytap/lib $(DESTDIR)/opt/skytap/bin $(DESTDIR)/opt/skytap/lib/skycap $(DESTDIR)/opt/skytap/share/configs
+
+	cp skytap.conf $(DESTDIR)/opt/skytap/etc/skytap.conf.example
+	cp skytap.ld.conf $(DESTDIR)/opt/skytap/etc/skytap.ld.conf
+
+	cp -r configs/* $(DESTDIR)/opt/skytap/share/configs
+
+	cp -d services/*  $(DESTDIR)/opt/skytap/etc/init
+
+	cp skytap-initscripts-common.sh  $(DESTDIR)/opt/skytap/lib
+	cp skytap_support.py $(DESTDIR)/opt/skytap/lib
+
+	cp skytap-service.py  $(DESTDIR)/opt/skytap/bin/skytap-service
+	cp skytap-cmd.py  $(DESTDIR)/opt/skytap/bin/skytap-cmd
+
+	cp scripts/* $(DESTDIR)/opt/skytap/bin
+
+	cp -r skycap/* $(DESTDIR)/opt/skytap/lib/skycap
+	cp capfile $(DESTDIR)/opt/skytap/lib
+
+	cp commands.yaml $(DESTDIR)/opt/skytap/etc
+
+clean:
+	rm -rf build
+	rm -f *.pyc
+	rm -f ../$(PKG_NAME)_$(VERSION)_all.deb
+	rm -f ../$(PKG_NAME)_$(VERSION)_amd64.changes
+	rm -f ../$(PKG_NAME)_$(VERSION)_amd64.build
+	rm -f ../$(PKG_NAME)_$(VERSION).tar.gz
+	rm -f ../$(PKG_NAME)_$(VERSION).dsc
+
+	find . -name '*~' | xargs rm -f
+	fakeroot debian/rules clean
+

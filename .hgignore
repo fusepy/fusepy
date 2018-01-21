@@ -1,0 +1,11 @@
+syntax: glob
+*.pyc
+*.pyo
+*.orig
+.svn
+*~
+*.swp
+*.egg-info
+build
+dist
+fusepy.egg-info

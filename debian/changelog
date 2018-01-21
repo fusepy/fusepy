@@ -1,0 +1,5 @@
+python-fusepy (2.0.2) UNRELEASED; urgency=low
+
+  * Initial package release. 
+
+ -- andrus <andrus@skytap.com>  Tue, 18 Feb 2014 07:06:52 +0000

@@ -1,0 +1,55 @@
+#!/usr/bin/make -f
+
+# Verbose mode
+#export DH_VERBOSE=1
+
+clean:
+	dh_testdir
+	dh_testroot
+	
+	rm -f build-stamp install-stamp
+	rm -rf build
+	find . -name *.pyc | xargs rm -f
+	
+	dh_clean
+
+build: build-arch build-indep
+build-arch: build-stamp
+build-indep: build-stamp
+build-stamp:
+	dh_testdir
+
+	python setup.py build
+
+	touch build-stamp
+
+install: build-stamp
+	dh_testdir
+	dh_installdirs
+
+	python setup.py install --root $(CURDIR)/debian/python-fusepy \
+		--install-scripts usr/share/doc/python-fusepy/examples/ \
+	        --install-layout=deb
+
+	for f in `find $(CURDIR)/debian/python-fusepy -name \*.py`; do \
+	    sed -e '\,^#!/usr/bin/env python,d' < $$f > $$f.tmp; \
+	    mv $$f.tmp $$f; \
+	done
+
+	touch install-stamp
+
+binary-arch:
+binary-indep: install
+	dh_installdocs
+	dh_installchangelogs
+	dh_compress
+	dh_fixperms
+	dh_python
+	dh_gencontrol
+	dh_installdeb
+	dh_md5sums
+	dh_builddeb
+
+binary: binary-arch binary-indep
+.PHONY: build clean binary-indep binary-arch binary
+
