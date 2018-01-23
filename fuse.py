@@ -18,7 +18,7 @@ from __future__ import print_function, absolute_import, division
 from ctypes import *
 from ctypes.util import find_library
 from errno import *
-from os import strerror
+from os import environ, strerror
 from platform import machine, system
 from signal import signal, SIGINT, SIG_DFL
 from stat import S_IFDIR
@@ -64,6 +64,8 @@ if _system == 'Darwin':
                      find_library('fuse'))
 else:
     _libfuse_path = find_library('fuse')
+
+_libfuse_path = environ('LIBFUSE_PATH', _libfuse_path)
 
 if not _libfuse_path:
     raise EnvironmentError('Unable to find libfuse')
