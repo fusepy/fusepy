@@ -2,13 +2,11 @@
 from __future__ import print_function, absolute_import, division
 
 import logging
+import paramiko
 
-from sys import argv, exit
-from time import time
+from errno import ENOENT
 
-from paramiko import SSHClient
-
-from fuse import FUSE, Operations, LoggingMixIn
+from fuse import FUSE, FuseOSError, Operations, LoggingMixIn
 
 
 class SFTP(LoggingMixIn, Operations):
@@ -18,12 +16,12 @@ class SFTP(LoggingMixIn, Operations):
     You need to be able to login to remote host without entering a password.
     '''
 
-    def __init__(self, host, path='.'):
-        self.client = SSHClient()
+    def __init__(self, host, username=None, port=22):
+        self.client = paramiko.SSHClient()
+        self.client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
         self.client.load_system_host_keys()
-        self.client.connect(host)
+        self.client.connect(host, port=port, username=username)
         self.sftp = self.client.open_sftp()
-        self.root = path
 
     def chmod(self, path, mode):
         return self.sftp.chmod(path, mode)
@@ -42,9 +40,13 @@ class SFTP(LoggingMixIn, Operations):
         self.client.close()
 
     def getattr(self, path, fh=None):
-        st = self.sftp.lstat(path)
-        return dict((key, getattr(st, key)) for key in ('st_atime', 'st_gid',
-            'st_mode', 'st_mtime', 'st_size', 'st_uid'))
+        try:
+            st = self.sftp.lstat(path)
+        except IOError:
+            raise FuseOSError(ENOENT)
+
+        return dict((key, getattr(st, key)) for key in (
+            'st_atime', 'st_gid', 'st_mode', 'st_mtime', 'st_size', 'st_uid'))
 
     def mkdir(self, path, mode):
         return self.sftp.mkdir(path, mode)
@@ -64,7 +66,7 @@ class SFTP(LoggingMixIn, Operations):
         return self.sftp.readlink(path)
 
     def rename(self, old, new):
-        return self.sftp.rename(old, self.root + new)
+        return self.sftp.rename(old, new)
 
     def rmdir(self, path):
         return self.sftp.rmdir(path)
@@ -90,10 +92,22 @@ class SFTP(LoggingMixIn, Operations):
 
 
 if __name__ == '__main__':
-    if len(argv) != 3:
-        print('usage: %s <host> <mountpoint>' % argv[0])
-        exit(1)
+    import argparse
+    parser = argparse.ArgumentParser()
+    parser.add_argument('-l', dest='login')
+    parser.add_argument('host')
+    parser.add_argument('mount')
+    args = parser.parse_args()
 
     logging.basicConfig(level=logging.DEBUG)
 
-    fuse = FUSE(SFTP(argv[1]), argv[2], foreground=True, nothreads=True)
+    if not args.login:
+        if '@' in args.host:
+            args.login, _, args.host = args.host.partition('@')
+
+    fuse = FUSE(
+        SFTP(args.host, username=args.login),
+        args.mount,
+        foreground=True,
+        nothreads=True,
+        allow_other=True)
