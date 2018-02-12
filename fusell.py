@@ -13,6 +13,8 @@
 # OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 from __future__ import print_function, absolute_import, division
 
+import os
+
 from ctypes import *
 from ctypes.util import find_library
 from errno import *
@@ -21,15 +23,30 @@ from inspect import getmembers, ismethod
 from platform import machine, system
 from stat import S_IFDIR, S_IFREG
 
-
 _system = system()
 _machine = machine()
+
+_libfuse_path = os.environ.get('FUSE_LIBRARY_PATH')
+if not _libfuse_path:
+    if _system == 'Darwin':
+        # libfuse dependency
+        _libiconv = CDLL(find_library('iconv'), RTLD_GLOBAL)
+
+        _libfuse_path = (find_library('fuse4x') or find_library('osxfuse') or
+                         find_library('fuse'))
+    else:
+        _libfuse_path = find_library('fuse')
+
+if not _libfuse_path:
+    raise EnvironmentError('Unable to find libfuse')
+else:
+    _libfuse = CDLL(_libfuse_path)
 
 class LibFUSE(CDLL):
     def __init__(self):
         if _system == 'Darwin':
-            self.libiconv = CDLL(find_library('iconv'), RTLD_GLOBAL)
-        super(LibFUSE, self).__init__(find_library('fuse'))
+            self.libiconv = _libiconv
+        super(LibFUSE, self).__init__(_libfuse_path)
 
         self.fuse_mount.argtypes = (c_char_p, POINTER(fuse_args))
         self.fuse_mount.restype = c_void_p

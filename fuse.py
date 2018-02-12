@@ -15,16 +15,17 @@
 
 from __future__ import print_function, absolute_import, division
 
+import logging
+import os
+
 from ctypes import *
 from ctypes.util import find_library
 from errno import *
-from os import strerror
 from platform import machine, system
 from signal import signal, SIGINT, SIG_DFL
 from stat import S_IFDIR
 from traceback import print_exc
 
-import logging
 
 try:
     from functools import partial
@@ -58,12 +59,16 @@ class c_stat(Structure):
 _system = system()
 _machine = machine()
 
-if _system == 'Darwin':
-    _libiconv = CDLL(find_library('iconv'), RTLD_GLOBAL) # libfuse dependency
-    _libfuse_path = (find_library('fuse4x') or find_library('osxfuse') or
-                     find_library('fuse'))
-else:
-    _libfuse_path = find_library('fuse')
+_libfuse_path = os.environ.get('FUSE_LIBRARY_PATH')
+if not _libfuse_path:
+    if _system == 'Darwin':
+        # libfuse dependency
+        _libiconv = CDLL(find_library('iconv'), RTLD_GLOBAL)
+
+        _libfuse_path = (find_library('fuse4x') or find_library('osxfuse') or
+                         find_library('fuse'))
+    else:
+        _libfuse_path = find_library('fuse')
 
 if not _libfuse_path:
     raise EnvironmentError('Unable to find libfuse')
@@ -402,7 +407,7 @@ def fuse_get_context():
 
 class FuseOSError(OSError):
     def __init__(self, errno):
-        super(FuseOSError, self).__init__(errno, strerror(errno))
+        super(FuseOSError, self).__init__(errno, os.strerror(errno))
 
 
 class FUSE(object):
