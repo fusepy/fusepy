@@ -247,7 +247,9 @@ class fuse_file_info(ctypes.Structure):
         ('direct_io', ctypes.c_uint, 1),
         ('keep_cache', ctypes.c_uint, 1),
         ('flush', ctypes.c_uint, 1),
-        ('padding', ctypes.c_uint, 29),
+        ('nonseekable', ctypes.c_uint, 1),
+        ('flock_release', ctypes.c_uint, 1),
+        ('padding', ctypes.c_uint, 27),
         ('fh', ctypes.c_uint64),
         ('lock_owner', ctypes.c_uint64)]
 
