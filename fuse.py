@@ -222,6 +222,22 @@ elif _system == 'Linux':
             ('st_atimespec', c_timespec),
             ('st_mtimespec', c_timespec),
             ('st_ctimespec', c_timespec)]
+    elif _machine == 'ppc64' or _machine == 'ppc64le':
+        c_stat._fields_ = [
+            ('st_dev', c_dev_t),
+            ('st_ino', c_ulong),
+            ('st_nlink', c_ulong),
+            ('st_mode', c_mode_t),
+            ('st_uid', c_uid_t),
+            ('st_gid', c_gid_t),
+            ('__pad', c_uint),
+            ('st_rdev', c_dev_t),
+            ('st_size', c_off_t),
+            ('st_blksize', c_long),
+            ('st_blocks', c_long),
+            ('st_atimespec', c_timespec),
+            ('st_mtimespec', c_timespec),
+            ('st_ctimespec', c_timespec)]
     elif _machine == 'aarch64':
         c_stat._fields_ = [
             ('st_dev', c_dev_t),
