@@ -1,16 +1,15 @@
 #!/usr/bin/env python
 from __future__ import print_function, absolute_import, division
 
-import logging
 import ctypes
+import logging
 import struct
 
 from collections import defaultdict
 from errno import ENOENT, ENOTTY
-from stat import S_IFDIR, S_IFREG
-from sys import argv, exit
-from time import time
 from ioctl_opt import IOWR
+from stat import S_IFDIR, S_IFREG
+from time import time
 
 from fuse import FUSE, FuseOSError, Operations, LoggingMixIn
 
@@ -18,20 +17,40 @@ if not hasattr(__builtins__, 'bytes'):
     bytes = str
 
 class Ioctl(LoggingMixIn, Operations):
-    'Example filesystem based on memory.py to demonstrate ioctl().'
+    '''
+    Example filesystem based on memory.py to demonstrate ioctl().
+
+    Usage::
+
+        mkdir test
+
+        python ioctl.py test
+        touch test/test
+
+        gcc -o ioctl_test ioctl.c
+        ./ioctl_test 100 test/test
+    '''
 
     def __init__(self):
         self.files = {}
         self.data = defaultdict(bytes)
         self.fd = 0
         now = time()
-        self.files['/'] = dict(st_mode=(S_IFDIR | 0o755), st_ctime=now,
-                               st_mtime=now, st_atime=now, st_nlink=2)
+        self.files['/'] = dict(
+            st_mode=(S_IFDIR | 0o755),
+            st_ctime=now,
+            st_mtime=now,
+            st_atime=now,
+            st_nlink=2)
 
     def create(self, path, mode):
-        self.files[path] = dict(st_mode=(S_IFREG | mode), st_nlink=1,
-                                st_size=0, st_ctime=time(), st_mtime=time(),
-                                st_atime=time())
+        self.files[path] = dict(
+            st_mode=(S_IFREG | mode),
+            st_nlink=1,
+            st_size=0,
+            st_ctime=time(),
+            st_mtime=time(),
+            st_atime=time())
 
         self.fd += 1
         return self.fd
@@ -41,13 +60,6 @@ class Ioctl(LoggingMixIn, Operations):
             raise FuseOSError(ENOENT)
 
         return self.files[path]
-
-    def open(self, path, flags):
-        self.fd += 1
-        return self.fd
-
-    def readdir(self, path, fh):
-        return ['.', '..'] + [x[1:] for x in self.files if x != '/']
 
     def ioctl(self, path, cmd, arg, fh, flags, data):
         M_IOWR = IOWR(ord('M'), 1, ctypes.c_uint32)
@@ -62,11 +74,22 @@ class Ioctl(LoggingMixIn, Operations):
             raise FuseOSError(ENOTTY)
         return 0
 
+    def open(self, path, flags):
+        self.fd += 1
+        return self.fd
+
+    def read(self, path, size, offset, fh):
+        return self.data[path][offset:offset + size]
+
+    def readdir(self, path, fh):
+        return ['.', '..'] + [x[1:] for x in self.files if x != '/']
+
 
 if __name__ == '__main__':
-    if len(argv) != 2:
-        print('usage: %s <mountpoint>' % argv[0])
-        exit(1)
+    import argparse
+    parser = argparse.ArgumentParser()
+    parser.add_argument('mount')
+    args = parser.parse_args()
 
     logging.basicConfig(level=logging.DEBUG)
-    fuse = FUSE(Ioctl(), argv[1], foreground=True)
+    fuse = FUSE(Ioctl(), args.mount, foreground=True, allow_other=True)
