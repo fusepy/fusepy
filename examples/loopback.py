@@ -2,13 +2,11 @@
 from __future__ import print_function, absolute_import, division
 
 import logging
+import os
 
 from errno import EACCES
 from os.path import realpath
-from sys import argv, exit
 from threading import Lock
-
-import os
 
 from fuse import FUSE, FuseOSError, Operations, LoggingMixIn
 
@@ -36,19 +34,20 @@ class Loopback(LoggingMixIn, Operations):
 
     def fsync(self, path, datasync, fh):
         if datasync != 0:
-          return os.fdatasync(fh)
+            return os.fdatasync(fh)
         else:
-          return os.fsync(fh)
+            return os.fsync(fh)
 
     def getattr(self, path, fh=None):
         st = os.lstat(path)
-        return dict((key, getattr(st, key)) for key in ('st_atime', 'st_ctime',
-            'st_gid', 'st_mode', 'st_mtime', 'st_nlink', 'st_size', 'st_uid'))
+        return dict((key, getattr(st, key)) for key in (
+            'st_atime', 'st_ctime', 'st_gid', 'st_mode', 'st_mtime',
+            'st_nlink', 'st_size', 'st_uid'))
 
     getxattr = None
 
     def link(self, target, source):
-        return os.link(source, target)
+        return os.link(self.root + source, target)
 
     listxattr = None
     mkdir = os.mkdir
@@ -75,9 +74,9 @@ class Loopback(LoggingMixIn, Operations):
 
     def statfs(self, path):
         stv = os.statvfs(path)
-        return dict((key, getattr(stv, key)) for key in ('f_bavail', 'f_bfree',
-            'f_blocks', 'f_bsize', 'f_favail', 'f_ffree', 'f_files', 'f_flag',
-            'f_frsize', 'f_namemax'))
+        return dict((key, getattr(stv, key)) for key in (
+            'f_bavail', 'f_bfree', 'f_blocks', 'f_bsize', 'f_favail',
+            'f_ffree', 'f_files', 'f_flag', 'f_frsize', 'f_namemax'))
 
     def symlink(self, target, source):
         return os.symlink(source, target)
@@ -96,10 +95,12 @@ class Loopback(LoggingMixIn, Operations):
 
 
 if __name__ == '__main__':
-    if len(argv) != 3:
-        print('usage: %s <root> <mountpoint>' % argv[0])
-        exit(1)
+    import argparse
+    parser = argparse.ArgumentParser()
+    parser.add_argument('root')
+    parser.add_argument('mount')
+    args = parser.parse_args()
 
     logging.basicConfig(level=logging.DEBUG)
-
-    fuse = FUSE(Loopback(argv[1]), argv[2], foreground=True)
+    fuse = FUSE(
+        Loopback(args.root), args.mount, foreground=True, allow_other=True)

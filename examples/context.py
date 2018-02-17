@@ -5,7 +5,6 @@ import logging
 
 from errno import ENOENT
 from stat import S_IFDIR, S_IFREG
-from sys import argv, exit
 from time import time
 
 from fuse import FUSE, FuseOSError, Operations, LoggingMixIn, fuse_get_context
@@ -34,7 +33,9 @@ class Context(LoggingMixIn, Operations):
 
     def read(self, path, size, offset, fh):
         uid, gid, pid = fuse_get_context()
-        encoded = lambda x: ('%s\n' % x).encode('utf-8')
+
+        def encoded(x):
+            return ('%s\n' % x).encode('utf-8')
 
         if path == '/uid':
             return encoded(uid)
@@ -61,10 +62,11 @@ class Context(LoggingMixIn, Operations):
 
 
 if __name__ == '__main__':
-    if len(argv) != 2:
-        print('usage: %s <mountpoint>' % argv[0])
-        exit(1)
+    import argparse
+    parser = argparse.ArgumentParser()
+    parser.add_argument('mount')
+    args = parser.parse_args()
 
     logging.basicConfig(level=logging.DEBUG)
-
-    fuse = FUSE(Context(), argv[1], foreground=True, ro=True)
+    fuse = FUSE(
+        Context(), args.mount, foreground=True, ro=True, allow_other=True)

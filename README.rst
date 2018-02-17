@@ -1,6 +1,13 @@
 fusepy
 ======
 
+    **NOTE**: *This project has moved to be under a GitHub organization and can
+    be found at https://github.com/fusepy/fusepy. The project has new
+    maintainers and will be looking to incorporate pull requests in a more
+    timely manner. If you would like to help maintain this package please open
+    a pull request and demonstrate willingness to help (we will leave
+    maintainer criteria up to the current maintainers).*
+
 ``fusepy`` is a Python module that provides a simple interface to FUSE_ and
 MacFUSE_. It's just one file and is implemented using ctypes.
 

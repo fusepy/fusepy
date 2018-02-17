@@ -4,9 +4,8 @@ from __future__ import print_function, absolute_import, division
 import logging
 
 from collections import defaultdict
-from errno import ENOENT, EROFS
-from stat import S_IFMT, S_IMODE, S_IFDIR, S_IFREG
-from sys import argv, exit
+from errno import ENOENT
+from stat import S_IFMT, S_IMODE, S_IFDIR
 from time import time
 
 from fusell import FUSELL
@@ -24,7 +23,10 @@ class Memory(FUSELL):
         self.parent = {}
         self.children = defaultdict(dict)
 
-        self.attr[1] = {'st_ino': 1, 'st_mode': S_IFDIR | 0o777, 'st_nlink': 2}
+        self.attr[1] = dict(
+            st_ino=1,
+            st_mode=S_IFDIR | 0o777,
+            st_nlink=2)
         self.parent[1] = 1
 
     forget = None
@@ -44,7 +46,11 @@ class Memory(FUSELL):
         attr = self.attr[ino]
 
         if attr:
-            entry = {'ino': ino, 'attr': attr, 'atttr_timeout': 1.0, 'entry_timeout': 1.0}
+            entry = dict(
+                ino=ino,
+                attr=attr,
+                attr_timeout=1.0,
+                entry_timeout=1.0)
             self.reply_entry(req, entry)
         else:
             self.reply_err(req, ENOENT)
@@ -54,22 +60,26 @@ class Memory(FUSELL):
         ino = self.create_ino()
         ctx = self.req_ctx(req)
         now = time()
-        attr = {
-            'st_ino': ino,
-            'st_mode': S_IFDIR | mode,
-            'st_nlink': 2,
-            'st_uid': ctx['uid'],
-            'st_gid': ctx['gid'],
-            'st_atime': now,
-            'st_mtime': now,
-            'st_ctime': now}
+        attr = dict(
+            st_ino=ino,
+            st_mode=S_IFDIR | mode,
+            st_nlink=2,
+            st_uid=ctx['uid'],
+            st_gid=ctx['gid'],
+            st_atime=now,
+            st_mtime=now,
+            st_ctime=now)
 
         self.attr[ino] = attr
         self.attr[parent]['st_nlink'] += 1
         self.parent[ino] = parent
         self.children[parent][name] = ino
 
-        entry = {'ino': ino, 'attr': attr, 'atttr_timeout': 1.0, 'entry_timeout': 1.0}
+        entry = dict(
+            ino=ino,
+            attr=attr,
+            atttr_timeout=1.0,
+            entry_timeout=1.0)
         self.reply_entry(req, entry)
 
     def mknod(self, req, parent, name, mode, rdev):
@@ -77,22 +87,26 @@ class Memory(FUSELL):
         ino = self.create_ino()
         ctx = self.req_ctx(req)
         now = time()
-        attr = {
-            'st_ino': ino,
-            'st_mode': mode,
-            'st_nlink': 1,
-            'st_uid': ctx['uid'],
-            'st_gid': ctx['gid'],
-            'st_rdev': rdev,
-            'st_atime': now,
-            'st_mtime': now,
-            'st_ctime': now}
+        attr = dict(
+            st_ino=ino,
+            st_mode=mode,
+            st_nlink=1,
+            st_uid=ctx['uid'],
+            st_gid=ctx['gid'],
+            st_rdev=rdev,
+            st_atime=now,
+            st_mtime=now,
+            st_ctime=now)
 
         self.attr[ino] = attr
         self.attr[parent]['st_nlink'] += 1
         self.children[parent][name] = ino
 
-        entry = {'ino': ino, 'attr': attr, 'atttr_timeout': 1.0, 'entry_timeout': 1.0}
+        entry = dict(
+            ino=ino,
+            attr=attr,
+            atttr_timeout=1.0,
+            entry_timeout=1.0)
         self.reply_entry(req, entry)
 
     def open(self, req, ino, fi):
@@ -107,7 +121,8 @@ class Memory(FUSELL):
     def readdir(self, req, ino, size, off, fi):
         print('readdir:', ino)
         parent = self.parent[ino]
-        entries = [('.', {'st_ino': ino, 'st_mode': S_IFDIR}),
+        entries = [
+            ('.', {'st_ino': ino, 'st_mode': S_IFDIR}),
             ('..', {'st_ino': parent, 'st_mode': S_IFDIR})]
         for name, child in self.children[ino].items():
             entries.append((name, self.attr[child]))
@@ -138,11 +153,12 @@ class Memory(FUSELL):
         self.attr[ino]['st_size'] = len(self.data[ino])
         self.reply_write(req, len(buf))
 
+
 if __name__ == '__main__':
-    if len(argv) != 2:
-        print('usage: %s <mountpoint>' % argv[0])
-        exit(1)
+    import argparse
+    parser = argparse.ArgumentParser()
+    parser.add_argument('mount')
+    args = parser.parse_args()
 
     logging.basicConfig(level=logging.DEBUG)
-
-    fuse = Memory(argv[1])
+    fuse = Memory(args.mount)

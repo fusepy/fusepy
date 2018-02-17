@@ -6,13 +6,13 @@ import logging
 from collections import defaultdict
 from errno import ENOENT
 from stat import S_IFDIR, S_IFLNK, S_IFREG
-from sys import argv, exit
 from time import time
 
 from fuse import FUSE, FuseOSError, Operations, LoggingMixIn
 
 if not hasattr(__builtins__, 'bytes'):
     bytes = str
+
 
 class Memory(LoggingMixIn, Operations):
     'Example memory filesystem. Supports only one level of files.'
@@ -22,8 +22,12 @@ class Memory(LoggingMixIn, Operations):
         self.data = defaultdict(bytes)
         self.fd = 0
         now = time()
-        self.files['/'] = dict(st_mode=(S_IFDIR | 0o755), st_ctime=now,
-                               st_mtime=now, st_atime=now, st_nlink=2)
+        self.files['/'] = dict(
+            st_mode=(S_IFDIR | 0o755),
+            st_ctime=now,
+            st_mtime=now,
+            st_atime=now,
+            st_nlink=2)
 
     def chmod(self, path, mode):
         self.files[path]['st_mode'] &= 0o770000
@@ -35,9 +39,13 @@ class Memory(LoggingMixIn, Operations):
         self.files[path]['st_gid'] = gid
 
     def create(self, path, mode):
-        self.files[path] = dict(st_mode=(S_IFREG | mode), st_nlink=1,
-                                st_size=0, st_ctime=time(), st_mtime=time(),
-                                st_atime=time())
+        self.files[path] = dict(
+            st_mode=(S_IFREG | mode),
+            st_nlink=1,
+            st_size=0,
+            st_ctime=time(),
+            st_mtime=time(),
+            st_atime=time())
 
         self.fd += 1
         return self.fd
@@ -61,9 +69,13 @@ class Memory(LoggingMixIn, Operations):
         return attrs.keys()
 
     def mkdir(self, path, mode):
-        self.files[path] = dict(st_mode=(S_IFDIR | mode), st_nlink=2,
-                                st_size=0, st_ctime=time(), st_mtime=time(),
-                                st_atime=time())
+        self.files[path] = dict(
+            st_mode=(S_IFDIR | mode),
+            st_nlink=2,
+            st_size=0,
+            st_ctime=time(),
+            st_mtime=time(),
+            st_atime=time())
 
         self.files['/']['st_nlink'] += 1
 
@@ -89,6 +101,7 @@ class Memory(LoggingMixIn, Operations):
             pass        # Should return ENOATTR
 
     def rename(self, old, new):
+        self.data[new] = self.data.pop(old)
         self.files[new] = self.files.pop(old)
 
     def rmdir(self, path):
@@ -104,8 +117,10 @@ class Memory(LoggingMixIn, Operations):
         return dict(f_bsize=512, f_blocks=4096, f_bavail=2048)
 
     def symlink(self, target, source):
-        self.files[target] = dict(st_mode=(S_IFLNK | 0o777), st_nlink=1,
-                                  st_size=len(source))
+        self.files[target] = dict(
+            st_mode=(S_IFLNK | 0o777),
+            st_nlink=1,
+            st_size=len(source))
 
         self.data[target] = source
 
@@ -114,6 +129,7 @@ class Memory(LoggingMixIn, Operations):
         self.files[path]['st_size'] = length
 
     def unlink(self, path):
+        self.data.pop(path)
         self.files.pop(path)
 
     def utimens(self, path, times=None):
@@ -129,9 +145,10 @@ class Memory(LoggingMixIn, Operations):
 
 
 if __name__ == '__main__':
-    if len(argv) != 2:
-        print('usage: %s <mountpoint>' % argv[0])
-        exit(1)
+    import argparse
+    parser = argparse.ArgumentParser()
+    parser.add_argument('mount')
+    args = parser.parse_args()
 
     logging.basicConfig(level=logging.DEBUG)
-    fuse = FUSE(Memory(), argv[1], foreground=True)
+    fuse = FUSE(Memory(), args.mount, foreground=True, allow_other=True)
