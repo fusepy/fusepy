@@ -80,7 +80,8 @@ if _system == 'Darwin' and hasattr(_libfuse, 'macfuse_version'):
 
 
 if _system in ('Darwin', 'Darwin-MacFuse', 'FreeBSD'):
-    errno.ENOTSUP = 45
+    ENOTSUP = 45
+
     c_dev_t = ctypes.c_int32
     c_fsblkcnt_t = ctypes.c_ulong
     c_fsfilcnt_t = ctypes.c_ulong
@@ -133,7 +134,8 @@ if _system in ('Darwin', 'Darwin-MacFuse', 'FreeBSD'):
             ('st_blocks', ctypes.c_int64),
             ('st_blksize', ctypes.c_int32)]
 elif _system == 'Linux':
-    errno.ENOTSUP = 95
+    ENOTSUP = 95
+
     c_dev_t = ctypes.c_ulonglong
     c_fsblkcnt_t = ctypes.c_ulonglong
     c_fsfilcnt_t = ctypes.c_ulonglong
@@ -939,7 +941,7 @@ class Operations(object):
         return dict(st_mode=(S_IFDIR | 0o755), st_nlink=2)
 
     def getxattr(self, path, name, position=0):
-        raise FuseOSError(errno.ENOTSUP)
+        raise FuseOSError(ENOTSUP)
 
     def init(self, path):
         '''
@@ -1007,7 +1009,7 @@ class Operations(object):
         return 0
 
     def removexattr(self, path, name):
-        raise FuseOSError(errno.ENOTSUP)
+        raise FuseOSError(ENOTSUP)
 
     def rename(self, old, new):
         raise FuseOSError(errno.EROFS)
@@ -1016,7 +1018,7 @@ class Operations(object):
         raise FuseOSError(errno.EROFS)
 
     def setxattr(self, path, name, value, options, position=0):
-        raise FuseOSError(errno.ENOTSUP)
+        raise FuseOSError(ENOTSUP)
 
     def statfs(self, path):
         '''

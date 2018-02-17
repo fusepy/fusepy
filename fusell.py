@@ -98,7 +98,8 @@ class c_stat(ctypes.Structure):
     pass    # Platform dependent
 
 if _system == 'Darwin':
-    errno.ENOTSUP = 45
+    ENOTSUP = 45
+
     c_dev_t = ctypes.c_int32
     c_fsblkcnt_t = ctypes.c_ulong
     c_fsfilcnt_t = ctypes.c_ulong
@@ -122,7 +123,8 @@ if _system == 'Darwin':
         ('st_blocks', ctypes.c_int64),
         ('st_blksize', ctypes.c_int32)]
 elif _system == 'Linux':
-    errno.ENOTSUP = 95
+    ENOTSUP = 95
+
     c_dev_t = ctypes.c_ulonglong
     c_fsblkcnt_t = ctypes.c_ulonglong
     c_fsfilcnt_t = ctypes.c_ulonglong
