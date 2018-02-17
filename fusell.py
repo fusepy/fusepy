@@ -19,7 +19,9 @@ import os
 
 from ctypes.util import find_library
 from platform import machine, system
+from signal import signal, SIGINT, SIG_DFL
 from stat import S_IFDIR
+
 
 _system = system()
 _machine = machine()
@@ -406,6 +408,11 @@ class FUSELL(object):
             argv, ctypes.byref(fuse_ops), ctypes.sizeof(fuse_ops), None)
         assert session
 
+        try:
+            old_handler = signal(SIGINT, SIG_DFL)
+        except ValueError:
+            old_handler = SIG_DFL
+
         err = self.libfuse.fuse_set_signal_handlers(session)
         assert err == 0
 
@@ -416,6 +423,11 @@ class FUSELL(object):
 
         err = self.libfuse.fuse_remove_signal_handlers(session)
         assert err == 0
+
+        try:
+            signal(SIGINT, old_handler)
+        except ValueError:
+            pass
 
         self.libfuse.fuse_session_remove_chan(chan)
         self.libfuse.fuse_session_destroy(session)
