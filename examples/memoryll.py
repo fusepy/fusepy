@@ -161,4 +161,4 @@ if __name__ == '__main__':
     args = parser.parse_args()
 
     logging.basicConfig(level=logging.DEBUG)
-    fuse = Memory(args.mount)
+    fuse = Memory(args.mount.encode('utf-8'))

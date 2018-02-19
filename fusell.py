@@ -398,7 +398,7 @@ class FUSELL(object):
             if method:
                 setattr(fuse_ops, name, prototype(method))
 
-        args = ['fuse']
+        args = [b'fuse']
         argv = fuse_args(len(args), (ctypes.c_char_p * len(args))(*args), 0)
 
         # TODO: handle initialization errors
