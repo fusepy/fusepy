@@ -625,6 +625,11 @@ class FUSELL(object):
     def fuse_fsyncdir(self, req, ino, datasync, fi):
         self.fsyncdir(req, ino, datasync, struct_to_dict(fi))
 
+    def fuse_setxattr(self, req, ino, name, value, size, flags):
+        self.setxattr(req, ino, name, ctypes.string_at(value, size), flags)
+
+    def fuse_create(self, req, parent, name, mode, fi):
+        self.create(req, parent, name, mode, struct_to_dict(fi))
 
     # Utility methods
 
@@ -847,3 +852,67 @@ class FUSELL(object):
             reply_err
         """
         self.reply_err(req, 0)
+
+    def statfs(self, req, ino):
+        """ Get file system statistics
+
+        Valid replies:
+            reply_statfs
+	        reply_err
+        """
+        self.reply_err(req, errno.ENOSYS)
+
+    def setxattr(self, req, ino, name, value, flags):
+        """ Set an extended attribute
+
+        Valid replies:
+	        reply_err
+        """
+        self.reply_err(req, errno.ENOSYS)
+
+    def getxattr(self, req, ino, name, size):
+        """ Set an extended attribute
+
+        Valid replies:
+	        reply_buf
+	        reply_data
+	        reply_xattr
+	        reply_err
+        """
+        self.reply_err(req, errno.ENOSYS)
+
+    def listxattr(self, req, ino, size):
+        """List extended attribute names
+
+        Valid replies:
+	        reply_buf
+	        reply_data
+	        reply_xattr
+	        reply_err
+        """
+        self.reply_err(req, errno.ENOSYS)
+
+    def removexattr(self, req, ino, name):
+        """Remove an extended attribute
+
+        Valid replies:
+	        reply_err
+        """
+        self.reply_err(req, errno.ENOSYS)
+
+    def access(self, req, ino, mask):
+        """Check file access permissions
+
+        Valid replies:
+	        reply_err
+        """
+        self.reply_err(req, errno.ENOSYS)
+
+    def create(self, req, parent, name, mode, fi):
+        """Create and open a file
+
+        Valid replies:
+            reply_create
+	        reply_err
+        """
+        self.reply_err(req, errno.ENOSYS)
