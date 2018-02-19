@@ -386,8 +386,10 @@ def setattr_mask_to_list(mask):
     return [FUSE_SET_ATTR[i] for i in range(len(FUSE_SET_ATTR)) if mask & (1 << i)]
 
 class FUSELL(object):
-    def __init__(self, mountpoint):
+    def __init__(self, mountpoint, encoding='utf-8'):
         self.libfuse = LibFUSE()
+        mountpoint = mountpoint.encode(encoding)
+        self.encoding = encoding
 
         fuse_ops = fuse_lowlevel_ops()
 
@@ -396,7 +398,7 @@ class FUSELL(object):
             if method:
                 setattr(fuse_ops, name, prototype(method))
 
-        args = ['fuse']
+        args = [b'fuse']
         argv = fuse_args(len(args), (ctypes.c_char_p * len(args))(*args), 0)
 
         # TODO: handle initialization errors
