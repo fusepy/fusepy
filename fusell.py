@@ -277,7 +277,17 @@ c_bytes_p = ctypes.POINTER(ctypes.c_byte)
 fuse_file_info_p = ctypes.POINTER(fuse_file_info)
 fuse_forget_data_p = ctypes.POINTER(fuse_forget_data)
 
-FUSE_SET_ATTR = ('st_mode', 'st_uid', 'st_gid', 'st_size', 'st_atime', 'st_mtime')
+FUSE_SET_ATTR = (
+    'st_mode',
+    'st_uid',
+    'st_gid',
+    'st_size',
+    'st_atime',
+    'st_mtime',
+    None,  # Flag 1<<6 (FATTR_FH) is never received by setattr
+    'st_atime_now',
+    'st_mtime_now',
+    'st_ctime')
 
 class fuse_entry_param(ctypes.Structure):
     _fields_ = [
