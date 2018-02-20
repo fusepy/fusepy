@@ -261,6 +261,7 @@ class fuse_ctx(ctypes.Structure):
 fuse_ino_t = ctypes.c_ulong
 fuse_req_t = ctypes.c_void_p
 c_stat_p = ctypes.POINTER(c_stat)
+c_bytes_p = ctypes.POINTER(ctypes.c_byte)
 fuse_file_info_p = ctypes.POINTER(fuse_file_info)
 
 FUSE_SET_ATTR = ('st_mode', 'st_uid', 'st_gid', 'st_size', 'st_atime', 'st_mtime')
@@ -325,7 +326,7 @@ class fuse_lowlevel_ops(ctypes.Structure):
             fuse_file_info_p)),
 
         ('write', ctypes.CFUNCTYPE(
-            None, fuse_req_t, fuse_ino_t, ctypes.c_char_p, ctypes.c_size_t,
+            None, fuse_req_t, fuse_ino_t, c_bytes_p, ctypes.c_size_t,
             c_off_t, fuse_file_info_p)),
 
         ('flush', ctypes.CFUNCTYPE(
