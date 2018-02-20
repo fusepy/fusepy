@@ -268,7 +268,7 @@ c_stat_p = ctypes.POINTER(c_stat)
 c_bytes_p = ctypes.POINTER(ctypes.c_byte)
 fuse_file_info_p = ctypes.POINTER(fuse_file_info)
 
-FUSE_SET_ATTR = ('st_mode', 'st_uid', 'st_gid', 'st_size', 'st_atime', 'st_mtime')
+FUSE_SET_ATTR = ('st_mode', 'st_uid', 'st_gid', 'st_size', 'st_atime', 'st_mtime', 'st_atime_now', 'st_mtime_now', 'st_ctime')
 
 class fuse_entry_param(ctypes.Structure):
     _fields_ = [
