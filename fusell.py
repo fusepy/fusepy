@@ -78,6 +78,8 @@ class LibFUSE(ctypes.CDLL):
         self.fuse_reply_buf.argtypes = (
             fuse_req_t, ctypes.c_char_p, ctypes.c_size_t)
         self.fuse_reply_write.argtypes = (fuse_req_t, ctypes.c_size_t)
+        self.fuse_reply_readlink.argtypes = (
+            fuse_req_t, ctypes.c_char_p)
 
         self.fuse_add_direntry.argtypes = (
             ctypes.c_void_p, ctypes.c_char_p, ctypes.c_size_t,
@@ -247,7 +249,9 @@ class fuse_file_info(ctypes.Structure):
         ('direct_io', ctypes.c_uint, 1),
         ('keep_cache', ctypes.c_uint, 1),
         ('flush', ctypes.c_uint, 1),
-        ('padding', ctypes.c_uint, 29),
+        ('nonseekable', ctypes.c_uint, 1),
+        ('flock_release', ctypes.c_uint, 1),
+        ('padding', ctypes.c_uint, 27),
         ('fh', ctypes.c_uint64),
         ('lock_owner', ctypes.c_uint64)]
 
@@ -261,9 +265,10 @@ class fuse_ctx(ctypes.Structure):
 fuse_ino_t = ctypes.c_ulong
 fuse_req_t = ctypes.c_void_p
 c_stat_p = ctypes.POINTER(c_stat)
+c_bytes_p = ctypes.POINTER(ctypes.c_byte)
 fuse_file_info_p = ctypes.POINTER(fuse_file_info)
 
-FUSE_SET_ATTR = ('st_mode', 'st_uid', 'st_gid', 'st_size', 'st_atime', 'st_mtime')
+FUSE_SET_ATTR = ('st_mode', 'st_uid', 'st_gid', 'st_size', 'st_atime', 'st_mtime', 'st_atime_now', 'st_mtime_now', 'st_ctime')
 
 class fuse_entry_param(ctypes.Structure):
     _fields_ = [
@@ -325,7 +330,7 @@ class fuse_lowlevel_ops(ctypes.Structure):
             fuse_file_info_p)),
 
         ('write', ctypes.CFUNCTYPE(
-            None, fuse_req_t, fuse_ino_t, ctypes.c_char_p, ctypes.c_size_t,
+            None, fuse_req_t, fuse_ino_t, c_bytes_p, ctypes.c_size_t,
             c_off_t, fuse_file_info_p)),
 
         ('flush', ctypes.CFUNCTYPE(
@@ -396,7 +401,7 @@ class FUSELL(object):
             if method:
                 setattr(fuse_ops, name, prototype(method))
 
-        args = ['fuse']
+        args = [b'fuse']
         argv = fuse_args(len(args), (ctypes.c_char_p * len(args))(*args), 0)
 
         # TODO: handle initialization errors
@@ -452,8 +457,9 @@ class FUSELL(object):
         return self.libfuse.fuse_reply_attr(
             req, ctypes.byref(st), ctypes.c_double(attr_timeout))
 
-    def reply_readlink(self, req, *args):
-        pass    # XXX
+    def reply_readlink(self, req, link):
+        return self.libfuse.fuse_reply_readlink(
+            req, link)
 
     def reply_open(self, req, d):
         fi = fuse_file_info(**d)
