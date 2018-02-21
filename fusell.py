@@ -312,7 +312,7 @@ class fuse_lowlevel_ops(ctypes.Structure):
 
         ('rename', ctypes.CFUNCTYPE(
             None, fuse_req_t, fuse_ino_t, ctypes.c_char_p, fuse_ino_t,
-            ctypes.c_char_p)),
+            ctypes.c_char_p, ctypes.c_uint)),
 
         ('link', ctypes.CFUNCTYPE(
             None, fuse_req_t, fuse_ino_t, fuse_ino_t, ctypes.c_char_p)),
@@ -502,6 +502,9 @@ class FUSELL(object):
         to_set_list = setattr_mask_to_list(to_set)
         fi_dict = struct_to_dict(fi)
         self.setattr(req, ino, attr_dict, to_set_list, fi_dict)
+
+    def fuse_rename(self, req, parent, name, newparent, newname, flags):
+        self.rename(req, parent, name, newparent, newname)
 
     def fuse_open(self, req, ino, fi):
         self.open(req, ino, struct_to_dict(fi))
