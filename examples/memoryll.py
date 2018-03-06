@@ -76,7 +76,7 @@ class Memory(FUSELL):
         entry = dict(
             ino=ino,
             attr=attr,
-            atttr_timeout=1.0,
+            attr_timeout=1.0,
             entry_timeout=1.0)
         self.reply_entry(req, entry)
 
@@ -103,7 +103,7 @@ class Memory(FUSELL):
         entry = dict(
             ino=ino,
             attr=attr,
-            atttr_timeout=1.0,
+            attr_timeout=1.0,
             entry_timeout=1.0)
         self.reply_entry(req, entry)
 

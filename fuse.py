@@ -961,7 +961,7 @@ class Operations(object):
 
         st_atime, st_mtime and st_ctime should be floats.
 
-        NOTE: There is an incombatibility between Linux and Mac OS X
+        NOTE: There is an incompatibility between Linux and Mac OS X
         concerning st_nlink of directories. Mac OS X counts all files inside
         the directory, while Linux counts only the subdirectories.
         '''
