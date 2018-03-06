@@ -29,8 +29,6 @@ class Memory(FUSELL):
             st_nlink=2)
         self.parent[1] = 1
 
-    forget = None
-
     def getattr(self, req, ino, fi):
         print('getattr:', ino)
         attr = self.attr[ino]

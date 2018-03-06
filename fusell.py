@@ -77,6 +77,7 @@ class LibFUSE(ctypes.CDLL):
         self.fuse_reply_open.argtypes = (fuse_req_t, ctypes.c_void_p)
         self.fuse_reply_buf.argtypes = (
             fuse_req_t, ctypes.c_char_p, ctypes.c_size_t)
+        self.fuse_reply_none.argtypes = (fuse_req_t,)
         self.fuse_reply_write.argtypes = (fuse_req_t, ctypes.c_size_t)
         self.fuse_reply_readlink.argtypes = (
             fuse_req_t, ctypes.c_char_p)
