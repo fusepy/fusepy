@@ -263,11 +263,18 @@ class fuse_ctx(ctypes.Structure):
         ('pid', c_pid_t),
     ]
 
+class fuse_forget_data(ctypes.Structure):
+    _fields_ = [
+        ('ino', ctypes.c_uint64),  # fuse_ino_t on libfuse3
+        ('nlookup', ctypes.c_uint64),
+    ]
+
 fuse_ino_t = ctypes.c_ulong
 fuse_req_t = ctypes.c_void_p
 c_stat_p = ctypes.POINTER(c_stat)
 c_bytes_p = ctypes.POINTER(ctypes.c_byte)
 fuse_file_info_p = ctypes.POINTER(fuse_file_info)
+fuse_forget_data_p = ctypes.POINTER(fuse_forget_data)
 
 FUSE_SET_ATTR = ('st_mode', 'st_uid', 'st_gid', 'st_size', 'st_atime', 'st_mtime')
 
@@ -289,7 +296,7 @@ class fuse_lowlevel_ops(ctypes.Structure):
             None, fuse_req_t, fuse_ino_t, ctypes.c_char_p)),
 
         ('forget', ctypes.CFUNCTYPE(
-            None, fuse_req_t, fuse_ino_t, ctypes.c_ulong)),
+            None, fuse_req_t, fuse_ino_t, ctypes.c_ulong)),  # nlookup is uint64_t in libfuse3
 
         ('getattr', ctypes.CFUNCTYPE(
             None, fuse_req_t, fuse_ino_t, fuse_file_info_p)),
@@ -318,7 +325,7 @@ class fuse_lowlevel_ops(ctypes.Structure):
 
         ('rename', ctypes.CFUNCTYPE(
             None, fuse_req_t, fuse_ino_t, ctypes.c_char_p, fuse_ino_t,
-            ctypes.c_char_p)),
+            ctypes.c_char_p)),  # There is an extra argument `unsigned int flags` in libfuse3
 
         ('link', ctypes.CFUNCTYPE(
             None, fuse_req_t, fuse_ino_t, fuse_ino_t, ctypes.c_char_p)),
@@ -354,7 +361,63 @@ class fuse_lowlevel_ops(ctypes.Structure):
             None, fuse_req_t, fuse_ino_t, fuse_file_info_p)),
 
         ('fsyncdir', ctypes.CFUNCTYPE(
-            None, fuse_req_t, fuse_ino_t, ctypes.c_int, fuse_file_info_p))]
+            None, fuse_req_t, fuse_ino_t, ctypes.c_int, fuse_file_info_p)),
+
+        ('statfs', ctypes.CFUNCTYPE(
+            None, fuse_req_t, fuse_ino_t)),
+
+        ('setxattr', ctypes.CFUNCTYPE(
+            None, fuse_req_t, fuse_ino_t, ctypes.c_char_p, c_bytes_p, ctypes.c_size_t, ctypes.c_int)),
+
+        ('getxattr', ctypes.CFUNCTYPE(
+            None, fuse_req_t, fuse_ino_t, ctypes.c_char_p, ctypes.c_size_t)),
+
+        ('listxattr', ctypes.CFUNCTYPE(
+            None, fuse_req_t, fuse_ino_t, ctypes.c_size_t)),
+
+        ('removexattr', ctypes.CFUNCTYPE(
+            None, fuse_req_t, fuse_ino_t, ctypes.c_char_p)),
+
+        ('access', ctypes.CFUNCTYPE(
+            None, fuse_req_t, fuse_ino_t, ctypes.c_int)),
+
+        ('create', ctypes.CFUNCTYPE(
+            None, fuse_req_t, fuse_ino_t, ctypes.c_char_p, c_mode_t, fuse_file_info_p)),
+
+        ('getlk', ctypes.CFUNCTYPE(
+            None, fuse_req_t, fuse_ino_t, fuse_file_info_p, ctypes.c_void_p)),
+
+        ('setlk', ctypes.CFUNCTYPE(
+            None, fuse_req_t, fuse_ino_t, fuse_file_info_p, ctypes.c_void_p, ctypes.c_int)),
+
+        ('bmap', ctypes.CFUNCTYPE(
+            None, fuse_req_t, fuse_ino_t, ctypes.c_size_t, ctypes.c_uint64)),
+
+        ('ioctl', ctypes.CFUNCTYPE(
+            None, fuse_req_t, fuse_ino_t, ctypes.c_int, ctypes.c_void_p, fuse_file_info_p, ctypes.c_uint, ctypes.c_void_p, ctypes.c_size_t, ctypes.c_size_t)),
+
+        ('poll', ctypes.CFUNCTYPE(
+            None, fuse_req_t, fuse_ino_t, fuse_file_info_p, ctypes.c_void_p)),
+
+        ('write_buf', ctypes.CFUNCTYPE(
+            None, fuse_req_t, fuse_ino_t, ctypes.c_void_p, c_off_t, fuse_file_info_p)),
+
+        ('retrieve_reply', ctypes.CFUNCTYPE(
+            None, fuse_req_t, ctypes.c_void_p, fuse_ino_t, c_off_t, ctypes.c_void_p)),
+
+        ('forget_multi', ctypes.CFUNCTYPE(
+            None, fuse_req_t, ctypes.c_size_t, fuse_forget_data_p)),
+
+        ('flock', ctypes.CFUNCTYPE(
+            None, fuse_req_t, fuse_ino_t, fuse_file_info_p, ctypes.c_int)),
+
+        ('fallocate', ctypes.CFUNCTYPE(
+            None, fuse_req_t, fuse_ino_t, ctypes.c_int, c_off_t, c_off_t, fuse_file_info_p)),
+
+        # readdirplus only exists in libfuse3
+        #('readdirplus', ctypes.CFUNCTYPE(
+            #None, fuse_req_t, fuse_ino_t, ctypes.c_size_t, c_off_t, fuse_file_info_p)),
+    ]
 
 
 def struct_to_dict(p):
