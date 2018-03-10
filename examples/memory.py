@@ -105,6 +105,7 @@ class Memory(LoggingMixIn, Operations):
         self.files[new] = self.files.pop(old)
 
     def rmdir(self, path):
+        # with multiple level support, need to raise ENOTEMPTY if contains any files
         self.files.pop(path)
         self.files['/']['st_nlink'] -= 1
 
@@ -125,7 +126,9 @@ class Memory(LoggingMixIn, Operations):
         self.data[target] = source
 
     def truncate(self, path, length, fh=None):
-        self.data[path] = self.data[path][:length]
+        # make sure extending the file fills in zero bytes
+        self.data[path] = self.data[path][:length].ljust(
+            length, '\x00'.encode('ascii'))
         self.files[path]['st_size'] = length
 
     def unlink(self, path):
@@ -139,7 +142,12 @@ class Memory(LoggingMixIn, Operations):
         self.files[path]['st_mtime'] = mtime
 
     def write(self, path, data, offset, fh):
-        self.data[path] = self.data[path][:offset] + data
+        self.data[path] = (
+            # make sure the data gets inserted at the right offset
+            self.data[path][:offset].ljust(offset, '\x00'.encode('ascii'))
+            + data
+            # and only overwrites the bytes that data is replacing
+            + self.data[path][offset + len(data):])
         self.files[path]['st_size'] = len(self.data[path])
         return len(data)
 
