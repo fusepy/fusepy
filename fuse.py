@@ -694,8 +694,7 @@ class FUSE(object):
         assert retsize <= size, \
             'actual amount read %d greater than expected %d' % (retsize, size)
 
-        data = ctypes.create_string_buffer(ret, retsize)
-        ctypes.memmove(buf, data, retsize)
+        ctypes.memmove(buf, ret, retsize)
         return retsize
 
     def write(self, path, buf, size, offset, fip):
