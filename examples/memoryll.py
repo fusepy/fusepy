@@ -19,7 +19,7 @@ class Memory(FUSELL):
     def init(self, userdata, conn):
         self.ino = 1
         self.attr = defaultdict(dict)
-        self.data = defaultdict(str)
+        self.data = defaultdict(bytes)
         self.parent = {}
         self.children = defaultdict(dict)
 
@@ -120,8 +120,8 @@ class Memory(FUSELL):
         print('readdir:', ino)
         parent = self.parent[ino]
         entries = [
-            ('.', {'st_ino': ino, 'st_mode': S_IFDIR}),
-            ('..', {'st_ino': parent, 'st_mode': S_IFDIR})]
+            (b'.', {'st_ino': ino, 'st_mode': S_IFDIR}),
+            (b'..', {'st_ino': parent, 'st_mode': S_IFDIR})]
         for name, child in self.children[ino].items():
             entries.append((name, self.attr[child]))
         self.reply_readdir(req, size, off, entries)
