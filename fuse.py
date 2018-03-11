@@ -25,6 +25,7 @@ from ctypes.util import find_library
 from platform import machine, system
 from signal import signal, SIGINT, SIG_DFL
 from stat import S_IFDIR
+from time import time
 from traceback import print_exc
 
 
@@ -42,6 +43,15 @@ except ImportError:
         newfunc.args = args
         newfunc.keywords = keywords
         return newfunc
+
+try:
+    from time import time_ns
+except ImportError:
+    def time_ns():
+        return int(time() * 1E9)
+
+UTIME_OMIT = (1 << 30) - 2
+UTIME_NOW = (1 << 30) - 1
 
 try:
     basestring
@@ -473,7 +483,16 @@ class fuse_operations(ctypes.Structure):
     ]
 
 
-def time_of_timespec(ts, use_ns=False):
+def time_of_timespec(ts, use_ns=False, now=None):
+    if ts.tv_sec == 0:
+        if ts.tv_nsec == UTIME_OMIT:
+            return None
+        if ts.tv_nsec == UTIME_NOW:
+            if now is not None:
+                return now
+
+            return time_ns() if use_ns else time()
+
     if use_ns:
         return ts.tv_sec * 10 ** 9 + ts.tv_nsec
     else:
@@ -898,8 +917,12 @@ class FUSE(object):
 
     def utimens(self, path, buf):
         if buf:
-            atime = time_of_timespec(buf.contents.actime, use_ns=self.use_ns)
-            mtime = time_of_timespec(buf.contents.modtime, use_ns=self.use_ns)
+            now = time_ns() if use_ns else time()
+
+            atime = time_of_timespec(
+                buf.contents.actime, use_ns=self.use_ns, now=now)
+            mtime = time_of_timespec(
+                buf.contents.modtime, use_ns=self.use_ns, now=now)
             times = (atime, mtime)
         else:
             times = None
