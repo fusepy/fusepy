@@ -438,7 +438,7 @@ def stat_to_dict(p, use_ns=False):
                 key = key[:-4]      # Lose the "spec"
 
                 if use_ns:
-                    d[key] = ts.tv_sec * 1E9 + ts.tv_nsec
+                    d[key] = ts.tv_sec * 10 ** 9 + ts.tv_nsec
                 else:
                     d[key] = ts.tv_sec + ts.tv_nsec / 1E9
             else:
@@ -453,7 +453,7 @@ def dict_to_stat(d, use_ns=False):
             val = d[key]
 
             if use_ns:
-                sec, ns = (int(i) for i in divmod(val, 1E9))
+                sec, ns = divmod(int(val), 10 ** 9)
             else:
                 sec = int(val)
                 nsec = int((val - sec) * 1E9)

@@ -475,7 +475,7 @@ class fuse_operations(ctypes.Structure):
 
 def time_of_timespec(ts, use_ns=False):
     if use_ns:
-        return ts.tv_sec * 1E9 + ts.tv_nsec
+        return ts.tv_sec * 10 ** 9 + ts.tv_nsec
     else:
         return ts.tv_sec + ts.tv_nsec / 1E9
 
@@ -487,9 +487,7 @@ def set_st_attrs(st, attrs, use_ns=False):
                 continue
 
             if use_ns:
-                sec, ns = divmod(val, 1E9)
-                timespec.tv_sec = int(sec)
-                timespec.tv_nsec = int(ns)
+                timespec.tv_sec, timespec.tv_nsec = divmod(int(val), 10 ** 9)
             else:
                 timespec.tv_sec = int(val)
                 timespec.tv_nsec = int((val - timespec.tv_sec) * 1E9)
