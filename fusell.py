@@ -13,6 +13,7 @@
 # OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 from __future__ import print_function, absolute_import, division
 
+import contextlib
 import ctypes
 import errno
 import os
@@ -62,6 +63,7 @@ class LibFUSE(ctypes.CDLL):
         self.fuse_session_add_chan.argtypes = (
             ctypes.c_void_p, ctypes.c_void_p)
         self.fuse_session_loop.argtypes = (ctypes.c_void_p,)
+        self.fuse_session_loop_mt.argtypes = (ctypes.c_void_p,)
         self.fuse_remove_signal_handlers.argtypes = (ctypes.c_void_p,)
         self.fuse_session_remove_chan.argtypes = (ctypes.c_void_p,)
         self.fuse_session_destroy.argtypes = (ctypes.c_void_p,)
@@ -81,6 +83,10 @@ class LibFUSE(ctypes.CDLL):
         self.fuse_reply_write.argtypes = (fuse_req_t, ctypes.c_size_t)
         self.fuse_reply_readlink.argtypes = (
             fuse_req_t, ctypes.c_char_p)
+        self.fuse_reply_statfs.argtypes = (fuse_req_t, c_statvfs_p)
+        self.fuse_reply_xattr.argtypes = (fuse_req_t, ctypes.c_size_t)
+        self.fuse_reply_create.argtypes = (
+            fuse_req_t, ctypes.c_void_p, ctypes.c_void_p)
 
         self.fuse_add_direntry.argtypes = (
             ctypes.c_void_p, ctypes.c_char_p, ctypes.c_size_t,
@@ -100,6 +106,9 @@ class c_timespec(ctypes.Structure):
     ]
 
 class c_stat(ctypes.Structure):
+    pass    # Platform dependent
+
+class c_statvfs(ctypes.Structure):
     pass    # Platform dependent
 
 if _system == 'Darwin':
@@ -155,6 +164,18 @@ elif _system == 'Linux':
             ('st_atimespec', c_timespec),
             ('st_mtimespec', c_timespec),
             ('st_ctimespec', c_timespec)]
+        c_statvfs._fields = [
+            ('f_bsize', ctypes.c_ulong),
+            ('f_frsize', ctypes.c_ulong),
+            ('f_blocks', c_fsblkcnt_t),
+            ('f_bfree', c_fsblkcnt_t),
+            ('f_bavail', c_fsblkcnt_t),
+            ('f_files', c_fsfilcnt_t),
+            ('f_ffree', c_fsfilcnt_t),
+            ('f_favail', c_fsfilcnt_t),
+            ('f_fsid', ctypes.c_ulong),
+            ('f_flag', ctypes.c_ulong),
+            ('f_namemax', ctypes.c_ulong)]
     elif _machine == 'mips':
         c_stat._fields_ = [
             ('st_dev', c_dev_t),
@@ -228,19 +249,21 @@ elif _system == 'Linux':
             ('st_mtimespec', c_timespec),
             ('st_ctimespec', c_timespec),
             ('st_ino', ctypes.c_ulonglong)]
+        c_statvfs._fields = [
+            ('f_bsize', ctypes.c_ulong),
+            ('f_frsize', ctypes.c_ulong),
+            ('f_blocks', c_fsblkcnt_t),
+            ('f_bfree', c_fsblkcnt_t),
+            ('f_bavail', c_fsblkcnt_t),
+            ('f_files', c_fsfilcnt_t),
+            ('f_ffree', c_fsfilcnt_t),
+            ('f_favail', c_fsfilcnt_t),
+            ('f_fsid', ctypes.c_ulong),
+            ('__f_unused', ctypes.c_int),
+            ('f_flag', ctypes.c_ulong),
+            ('f_namemax', ctypes.c_ulong)]
 else:
     raise NotImplementedError('%s is not supported.' % _system)
-
-class c_statvfs(ctypes.Structure):
-    _fields_ = [
-        ('f_bsize', ctypes.c_ulong),
-        ('f_frsize', ctypes.c_ulong),
-        ('f_blocks', c_fsblkcnt_t),
-        ('f_bfree', c_fsblkcnt_t),
-        ('f_bavail', c_fsblkcnt_t),
-        ('f_files', c_fsfilcnt_t),
-        ('f_ffree', c_fsfilcnt_t),
-        ('f_favail', c_fsfilcnt_t)]
 
 class fuse_file_info(ctypes.Structure):
     _fields_ = [
@@ -272,6 +295,7 @@ class fuse_forget_data(ctypes.Structure):
 fuse_ino_t = ctypes.c_ulong
 fuse_req_t = ctypes.c_void_p
 c_stat_p = ctypes.POINTER(c_stat)
+c_statvfs_p = ctypes.POINTER(c_statvfs)
 c_bytes_p = ctypes.POINTER(ctypes.c_byte)
 fuse_file_info_p = ctypes.POINTER(fuse_file_info)
 fuse_forget_data_p = ctypes.POINTER(fuse_forget_data)
@@ -419,14 +443,6 @@ class fuse_lowlevel_ops(ctypes.Structure):
             #None, fuse_req_t, fuse_ino_t, ctypes.c_size_t, c_off_t, fuse_file_info_p)),
     ]
 
-
-def struct_to_dict(p):
-    try:
-        x = p.contents
-        return dict((key, getattr(x, key)) for key, type in x._fields_)
-    except ValueError:
-        return {}
-
 def stat_to_dict(p):
     try:
         d = {}
@@ -455,9 +471,27 @@ def setattr_mask_to_list(mask):
     return [FUSE_SET_ATTR[i] for i in range(len(FUSE_SET_ATTR)) if mask & (1 << i)]
 
 class FUSELL(object):
-    def __init__(self, mountpoint):
+    def __init__(self, mountpoint, raw_fi=False, encoding='utf-8', encode=None,
+                 decode=None, nothreads=False, debug=False, **kwargs):
         self.libfuse = LibFUSE()
 
+        if encode is None:
+            if hasattr(os, 'fsencode'):
+                encode = os.fsencode
+            else:
+                encode = lambda s: s.encode(self.encoding)
+        if decode is None:
+            if hasattr(os, 'fsdecode'):
+                decode = os.fsdecode
+            else:
+                decode = lambda s: s.decode(self.encoding)
+
+        self.encoding = encoding
+        self.encode = encode
+        self.decode = decode
+        self.raw_fi = raw_fi
+
+        mountpoint = self.encode(mountpoint)
         fuse_ops = fuse_lowlevel_ops()
 
         for name, prototype in fuse_lowlevel_ops._fields_:
@@ -466,41 +500,97 @@ class FUSELL(object):
                 setattr(fuse_ops, name, prototype(method))
 
         args = ['fuse']
-        argv = fuse_args(len(args), (ctypes.c_char_p * len(args))(*args), 0)
-
-        # TODO: handle initialization errors
-
-        chan = self.libfuse.fuse_mount(mountpoint, argv)
-        assert chan
-
-        session = self.libfuse.fuse_lowlevel_new(
-            argv, ctypes.byref(fuse_ops), ctypes.sizeof(fuse_ops), None)
-        assert session
 
         try:
             old_handler = signal(SIGINT, SIG_DFL)
         except ValueError:
             old_handler = SIG_DFL
 
-        err = self.libfuse.fuse_set_signal_handlers(session)
-        assert err == 0
+        if debug:
+            args.append('-d')
 
-        self.libfuse.fuse_session_add_chan(session, chan)
+        kwargs.setdefault('fsname', self.__class__.__name__)
+        args.append('-o')
+        args.append(','.join(self._normalize_fuse_options(**kwargs)))
 
-        err = self.libfuse.fuse_session_loop(session)
-        assert err == 0
-
-        err = self.libfuse.fuse_remove_signal_handlers(session)
-        assert err == 0
+        args = [self.encode(arg) for arg in args]
+        argv = fuse_args(len(args), (ctypes.c_char_p * len(args))(*args), 0)
 
         try:
             signal(SIGINT, old_handler)
         except ValueError:
             pass
 
-        self.libfuse.fuse_session_remove_chan(chan)
-        self.libfuse.fuse_session_destroy(session)
-        self.libfuse.fuse_unmount(mountpoint, chan)
+        @contextlib.contextmanager
+        def make_chan():
+            chan = self.libfuse.fuse_mount(mountpoint, argv)
+            assert chan
+            try:
+                yield chan
+            finally:
+                self.libfuse.fuse_unmount(mountpoint, chan)
+
+        @contextlib.contextmanager
+        def make_session():
+            session = self.libfuse.fuse_lowlevel_new(
+                argv, ctypes.byref(fuse_ops), ctypes.sizeof(fuse_ops), None)
+            assert session
+            try:
+                yield session
+            finally:
+                self.libfuse.fuse_session_destroy(session)
+
+        @contextlib.contextmanager
+        def connect_chan_to_session(chan, session):
+            self.libfuse.fuse_session_add_chan(session, chan)
+            try:
+                yield
+            finally:
+                self.libfuse.fuse_session_remove_chan(chan)
+
+        @contextlib.contextmanager
+        def use_fuse_signal_handlers(session):
+            err = self.libfuse.fuse_set_signal_handlers(session)
+            assert err == 0
+            try:
+                yield
+            finally:
+                err = self.libfuse.fuse_remove_signal_handlers(session)
+                assert err == 0
+
+        @contextlib.contextmanager
+        def python_default_signals():
+            try:
+                old_handler = signal.signal(signal.SIGINT, signal.SIG_DFL)
+            except ValueError:
+                old_handler = signal.SIG_DFL
+            try:
+                yield
+            finally:
+                try:
+                    signal.signal(signal.SIGINT, old_handler)
+                except ValueError:
+                    pass
+
+        with make_chan() as chan:
+            with make_session() as session:
+                with connect_chan_to_session(chan, session):
+                    with python_default_signals():
+                        with use_fuse_signal_handlers(session):
+                            if nothreads:
+                                err = self.libfuse.fuse_session_loop(session)
+                            else:
+                                err = self.libfuse.fuse_session_loop_mt(
+                                    session)
+                            assert err == 0
+
+    @staticmethod
+    def _normalize_fuse_options(**kargs):
+        for key, value in kargs.items():
+            if isinstance(value, bool):
+                if value is True: yield key
+            else:
+                yield '%s=%s' % (key, value)
 
     def reply_err(self, req, err):
         return self.libfuse.fuse_reply_err(req, err)
@@ -513,9 +603,6 @@ class FUSELL(object):
         e = fuse_entry_param(**entry)
         self.libfuse.fuse_reply_entry(req, ctypes.byref(e))
 
-    def reply_create(self, req, *args):
-        pass    # XXX
-
     def reply_attr(self, req, attr, attr_timeout):
         st = dict_to_stat(attr)
         return self.libfuse.fuse_reply_attr(
@@ -525,8 +612,11 @@ class FUSELL(object):
         return self.libfuse.fuse_reply_readlink(
             req, link)
 
-    def reply_open(self, req, d):
-        fi = fuse_file_info(**d)
+    def reply_open(self, req, fi=None):
+        if fi:
+            fi = fuse_file_info(**fi)
+        else:
+            fi = fuse_file_info()
         return self.libfuse.fuse_reply_open(req, ctypes.byref(fi))
 
     def reply_write(self, req, count):
@@ -535,10 +625,35 @@ class FUSELL(object):
     def reply_buf(self, req, buf):
         return self.libfuse.fuse_reply_buf(req, buf, len(buf))
 
+    def reply_statfs(self, req, d):
+        s = c_statvfs(**d)
+        return self.libfuse.fuse_reply_statfs(req, s)
+
+    def reply_xattr(self, req, value, max_size):
+        if max_size == 0:
+            return self.libfuse.fuse_reply_xattr(req, len(value))
+        if len(value) > max_size:
+            return self.libfuse.fuse_reply_err(req, errno.ERANGE)
+        return self.reply_buf(req, value)
+
+    def reply_listxattr(self, req, names, size):
+        buf = b"".join(self.encode(name) + b"\0" for name in names)
+        return self.reply_xattr(req, buf, size)
+
+    def reply_create(self, req, entry, fi=None):
+        entry['attr'] = c_stat(**entry['attr'])
+        e = fuse_entry_param(**entry)
+        if fi:
+            fi = fuse_file_info(**fi)
+        else:
+            fi = fuse_file_info()
+        self.libfuse.fuse_reply_create(req, ctypes.byref(e), ctypes.byref(fi))
+
     def reply_readdir(self, req, size, off, entries):
         bufsize = 0
         sized_entries = []
         for name, attr in entries:
+            name = self.encode(name)
             entsize = self.libfuse.fuse_add_direntry(req, None, 0, name, None, 0)
             sized_entries.append((name, attr, entsize))
             bufsize += entsize
@@ -564,53 +679,95 @@ class FUSELL(object):
     # If you override the following methods you should reply directly
     # with the self.libfuse.fuse_reply_* methods.
 
-    def fuse_getattr(self, req, ino, fi):
-        self.getattr(req, ino, struct_to_dict(fi))
+    def get_fi(self, fip):
+        if not fip:
+            return None
+        if self.raw_fi:
+            return fip.contents
+        return fip.contents.fh
 
-    def fuse_setattr(self, req, ino, attr, to_set, fi):
+    def fuse_lookup(self, req, parent, name):
+        self.lookup(req, parent, self.decode(name))
+
+    def fuse_getattr(self, req, ino, fip):
+        self.getattr(req, ino, self.get_fi(fip))
+
+    def fuse_setattr(self, req, ino, attr, to_set, fip):
         attr_dict = stat_to_dict(attr)
         to_set_list = setattr_mask_to_list(to_set)
-        fi_dict = struct_to_dict(fi)
-        self.setattr(req, ino, attr_dict, to_set_list, fi_dict)
+        self.setattr(req, ino, attr_dict, to_set_list, self.get_fi(fip))
 
-    def fuse_open(self, req, ino, fi):
-        self.open(req, ino, struct_to_dict(fi))
+    def fuse_mknod(self, req, parent, name, mode, rdev):
+        self.mknod(req, parent, self.decode(name), mode, rdev)
 
-    def fuse_read(self, req, ino, size, off, fi):
-        self.read(req, ino, size, off, fi)
+    def fuse_mkdir(self, req, parent, name, mode):
+        self.mkdir(req, parent, self.decode(name), mode)
 
-    def fuse_write(self, req, ino, buf, size, off, fi):
+    def fuse_unlink(self, req, parent, name):
+        self.unlink(req, parent, self.decode(name))
+
+    def fuse_rmdir(self, req, parent, name):
+        self.rmdir(req, parent, self.decode(name))
+
+    def fuse_symlink(self, req, link, parent, name):
+        self.symlink(req, link, parent, self.decode(name))
+
+    def fuse_rename(self, req, parent, name, newparent, newname):
+        self.rename(
+            req, parent, self.decode(name), newparent, self.decode(newname))
+
+    def fuse_link(self, req, ino, newparent, newname):
+        self.link(req, ino, newparent, self.decode(newname))
+
+    def fuse_open(self, req, ino, fip):
+        self.open(req, ino, fip.contents)
+
+    def fuse_read(self, req, ino, size, off, fip):
+        self.read(req, ino, size, off, self.get_fi(fip))
+
+    def fuse_write(self, req, ino, buf, size, off, fip):
         buf_str = ctypes.string_at(buf, size)
-        fi_dict = struct_to_dict(fi)
-        self.write(req, ino, buf_str, off, fi_dict)
+        self.write(req, ino, buf_str, off, self.get_fi(fip))
 
-    def fuse_flush(self, req, ino, fi):
-        self.flush(req, ino, struct_to_dict(fi))
+    def fuse_flush(self, req, ino, fip):
+        self.flush(req, ino, self.get_fi(fip))
 
-    def fuse_release(self, req, ino, fi):
-        self.release(req, ino, struct_to_dict(fi))
+    def fuse_release(self, req, ino, fip):
+        self.release(req, ino, self.get_fi(fip))
 
-    def fuse_fsync(self, req, ino, datasync, fi):
-        self.fsyncdir(req, ino, datasync, struct_to_dict(fi))
+    def fuse_fsync(self, req, ino, datasync, fip):
+        self.fsyncdir(req, ino, datasync, self.get_fi(fip))
 
-    def fuse_opendir(self, req, ino, fi):
-        self.opendir(req, ino, struct_to_dict(fi))
+    def fuse_opendir(self, req, ino, fip):
+        self.opendir(req, ino)
 
-    def fuse_readdir(self, req, ino, size, off, fi):
-        self.readdir(req, ino, size, off, struct_to_dict(fi))
+    def fuse_readdir(self, req, ino, size, off, fip):
+        self.readdir(req, ino, size, off, self.get_fi(fip))
 
-    def fuse_releasedir(self, req, ino, fi):
-        self.releasedir(req, ino, struct_to_dict(fi))
+    def fuse_releasedir(self, req, ino, fip):
+        self.releasedir(req, ino, self.get_fi(fip))
 
-    def fuse_fsyncdir(self, req, ino, datasync, fi):
-        self.fsyncdir(req, ino, datasync, struct_to_dict(fi))
+    def fuse_fsyncdir(self, req, ino, datasync, fip):
+        self.fsyncdir(req, ino, datasync, self.get_fi(fip))
 
+    def fuse_setxattr(self, req, ino, name, value_buf, value_size, flags):
+        value = ctypes.string_at(value_buf, value_size)
+        self.setxattr(req, ino, self.decode(name), value, flags)
+
+    def fuse_getxattr(self, req, ino, name, size):
+        self.getxattr(req, ino, self.decode(name), size)
+
+    def fuse_removexattr(self, req, ino, name):
+        self.removexattr(self, req, ino, self.decode(name))
+
+    def fuse_create(self, req, parent, name, mode, fip):
+        self.create(req, parent, self.decode(name), mode, fip.contents)
 
     # Utility methods
 
     def req_ctx(self, req):
         ctx = self.libfuse.fuse_req_ctx(req)
-        return struct_to_dict(ctx)
+        return ctx.contents
 
 
     # Methods to be overridden in subclasses.
@@ -745,7 +902,7 @@ class FUSELL(object):
             reply_open
             reply_err
         """
-        self.reply_open(req, fi)
+        self.reply_open(req)
 
     def read(self, req, ino, size, off, fi):
         """Read data
@@ -771,7 +928,7 @@ class FUSELL(object):
         Valid replies:
             reply_err
         """
-        self.reply_err(req, 0)
+        self.reply_err(req, errno.ENOSYS)
 
     def release(self, req, ino, fi):
         """Release an open file
@@ -787,16 +944,16 @@ class FUSELL(object):
         Valid replies:
             reply_err
         """
-        self.reply_err(req, 0)
+        self.reply_err(req, errno.ENOSYS)
 
-    def opendir(self, req, ino, fi):
+    def opendir(self, req, ino):
         """Open a directory
 
         Valid replies:
             reply_open
             reply_err
         """
-        self.reply_open(req, fi)
+        self.reply_open(req)
 
     def readdir(self, req, ino, size, off, fi):
         """Read directory
@@ -826,4 +983,65 @@ class FUSELL(object):
         Valid replies:
             reply_err
         """
+        self.reply_err(req, errno.ENOSYS)
+
+    def statfs(self, req, ino):
+        """Get filesystem information.
+
+        Valid replies:
+            reply_statfs
+            reply_err
+        """
         self.reply_err(req, 0)
+
+    def setxattr(self, req, ino, name, value, flags):
+        """Set extended attribute.
+
+        Valid replies:
+            reply_err
+        """
+        self.reply_err(req, errno.ENOSYS)
+
+    def getxattr(self, req, ino, name, size):
+        """Get extended attribute.
+
+        Valid replies:
+            reply_buf
+            reply_xattr
+            reply_err
+        """
+        self.reply_err(req, errno.ENOSYS)
+
+    def listxattr(self, req, ino, size):
+        """List extended attributes.
+
+        Valid replies:
+            reply_listxattr
+            reply_err
+        """
+        self.reply_err(req, errno.ENOSYS)
+
+    def removexattr(self, req, ino, name):
+        """Remove extended attribute.
+
+        Valid replies:
+            reply_err
+        """
+        self.reply_err(req, errno.ENOSYS)
+
+    def access(self, req, ino, mask):
+        """Return access permissions.
+
+        Valid replies:
+            reply_err
+        """
+        self.reply_err(req, errno.ENOSYS)
+
+    def create(self, req, parent, name, mode, fi):
+        """Create a file.
+
+        Valid replies:
+            reply_create
+            reply_err
+        """
+        self.reply_err(req, errno.ENOSYS)
