@@ -226,16 +226,16 @@ elif _system == 'Linux':
     elif _machine == 'ppc64' or _machine == 'ppc64le':
         c_stat._fields_ = [
             ('st_dev', c_dev_t),
-            ('st_ino', c_ulong),
-            ('st_nlink', c_ulong),
+            ('st_ino', ctypes.c_ulong),
+            ('st_nlink', ctypes.c_ulong),
             ('st_mode', c_mode_t),
             ('st_uid', c_uid_t),
             ('st_gid', c_gid_t),
-            ('__pad', c_uint),
+            ('__pad', ctypes.c_uint),
             ('st_rdev', c_dev_t),
             ('st_size', c_off_t),
-            ('st_blksize', c_long),
-            ('st_blocks', c_long),
+            ('st_blksize', ctypes.c_long),
+            ('st_blocks', ctypes.c_long),
             ('st_atimespec', c_timespec),
             ('st_mtimespec', c_timespec),
             ('st_ctimespec', c_timespec)]
@@ -1001,7 +1001,7 @@ class Operations(object):
         pass
 
     def ioctl(self, path, cmd, arg, fip, flags, data):
-        raise FuseOSError(ENOTTY)
+        raise FuseOSError(errno.ENOTTY)
 
     def link(self, target, source):
         'creates a hard link `target -> source` (e.g. ln source target)'
