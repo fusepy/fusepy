@@ -16,6 +16,7 @@ from __future__ import print_function, absolute_import, division
 import ctypes
 import errno
 import os
+import warnings
 
 from ctypes.util import find_library
 from platform import machine, system
@@ -427,7 +428,7 @@ def struct_to_dict(p):
     except ValueError:
         return {}
 
-def stat_to_dict(p):
+def stat_to_dict(p, use_ns=False):
     try:
         d = {}
         x = p.contents
@@ -435,19 +436,28 @@ def stat_to_dict(p):
             if key in ('st_atimespec', 'st_mtimespec', 'st_ctimespec'):
                 ts = getattr(x, key)
                 key = key[:-4]      # Lose the "spec"
-                d[key] = ts.tv_sec + ts.tv_nsec / 10 ** 9
+
+                if use_ns:
+                    d[key] = ts.tv_sec * 1E9 + ts.tv_nsec
+                else:
+                    d[key] = ts.tv_sec + ts.tv_nsec / 1E9
             else:
                 d[key] = getattr(x, key)
         return d
     except ValueError:
         return {}
 
-def dict_to_stat(d):
+def dict_to_stat(d, use_ns=False):
     for key in ('st_atime', 'st_mtime', 'st_ctime'):
         if key in d:
             val = d[key]
-            sec = int(val)
-            nsec = int((val - sec) * 10 ** 9)
+
+            if use_ns:
+                sec, ns = (int(i) for i in divmod(val, 1E9))
+            else:
+                sec = int(val)
+                nsec = int((val - sec) * 1E9)
+
             d[key + 'spec'] = c_timespec(sec, nsec)
     return c_stat(**d)
 
@@ -455,7 +465,17 @@ def setattr_mask_to_list(mask):
     return [FUSE_SET_ATTR[i] for i in range(len(FUSE_SET_ATTR)) if mask & (1 << i)]
 
 class FUSELL(object):
+    use_ns = False
+
     def __init__(self, mountpoint):
+        if not self.use_ns:
+            warnings.warn(
+                'Time as floating point seconds for utimens is deprecated!\n'
+                'To enable time as nanoseconds set the property "use_ns" to '
+                'True in your FUSELL class or set your fusepy '
+                'requirements to <4.',
+                DeprecationWarning)
+
         self.libfuse = LibFUSE()
 
         fuse_ops = fuse_lowlevel_ops()
@@ -517,7 +537,7 @@ class FUSELL(object):
         pass    # XXX
 
     def reply_attr(self, req, attr, attr_timeout):
-        st = dict_to_stat(attr)
+        st = dict_to_stat(attr, use_ns=self.use_ns)
         return self.libfuse.fuse_reply_attr(
             req, ctypes.byref(st), ctypes.c_double(attr_timeout))
 
@@ -568,7 +588,7 @@ class FUSELL(object):
         self.getattr(req, ino, struct_to_dict(fi))
 
     def fuse_setattr(self, req, ino, attr, to_set, fi):
-        attr_dict = stat_to_dict(attr)
+        attr_dict = stat_to_dict(attr, use_ns=self.use_ns)
         to_set_list = setattr_mask_to_list(to_set)
         fi_dict = struct_to_dict(fi)
         self.setattr(req, ino, attr_dict, to_set_list, fi_dict)

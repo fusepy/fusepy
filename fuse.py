@@ -19,6 +19,7 @@ import ctypes
 import errno
 import logging
 import os
+import warnings
 
 from ctypes.util import find_library
 from platform import machine, system
@@ -472,17 +473,26 @@ class fuse_operations(ctypes.Structure):
     ]
 
 
-def time_of_timespec(ts):
-    return ts.tv_sec + ts.tv_nsec / 10 ** 9
+def time_of_timespec(ts, use_ns=False):
+    if use_ns:
+        return ts.tv_sec * 1E9 + ts.tv_nsec
+    else:
+        return ts.tv_sec + ts.tv_nsec / 1E9
 
-def set_st_attrs(st, attrs):
+def set_st_attrs(st, attrs, use_ns=False):
     for key, val in attrs.items():
         if key in ('st_atime', 'st_mtime', 'st_ctime', 'st_birthtime'):
             timespec = getattr(st, key + 'spec', None)
             if timespec is None:
                 continue
-            timespec.tv_sec = int(val)
-            timespec.tv_nsec = int((val - timespec.tv_sec) * 10 ** 9)
+
+            if use_ns:
+                sec, ns = divmod(val, 1E9)
+                timespec.tv_sec = int(sec)
+                timespec.tv_nsec = int(ns)
+            else:
+                timespec.tv_sec = int(val)
+                timespec.tv_nsec = int((val - timespec.tv_sec) * 1E9)
         elif hasattr(st, key):
             setattr(st, key, val)
 
@@ -527,6 +537,15 @@ class FUSE(object):
         self.operations = operations
         self.raw_fi = raw_fi
         self.encoding = encoding
+
+        self.use_ns = getattr(operations, 'use_ns', False)
+        if not self.use_ns:
+            warnings.warn(
+                'Time as floating point seconds for utimens is deprecated!\n'
+                'To enable time as nanoseconds set the property "use_ns" to '
+                'True in your operations class or set your fusepy '
+                'requirements to <4.',
+                DeprecationWarning)
 
         args = ['fuse']
 
@@ -808,7 +827,7 @@ class FUSE(object):
                 name, attrs, offset = item
                 if attrs:
                     st = c_stat()
-                    set_st_attrs(st, attrs)
+                    set_st_attrs(st, attrs, use_ns=self.use_ns)
                 else:
                     st = None
 
@@ -867,7 +886,7 @@ class FUSE(object):
             fh = fip.contents.fh
 
         attrs = self.operations('getattr', self._decode_optional_path(path), fh)
-        set_st_attrs(st, attrs)
+        set_st_attrs(st, attrs, use_ns=self.use_ns)
         return 0
 
     def lock(self, path, fip, cmd, lock):
@@ -881,8 +900,8 @@ class FUSE(object):
 
     def utimens(self, path, buf):
         if buf:
-            atime = time_of_timespec(buf.contents.actime)
-            mtime = time_of_timespec(buf.contents.modtime)
+            atime = time_of_timespec(buf.contents.actime, use_ns=self.use_ns)
+            mtime = time_of_timespec(buf.contents.modtime, use_ns=self.use_ns)
             times = (atime, mtime)
         else:
             times = None
