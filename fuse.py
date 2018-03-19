@@ -347,17 +347,41 @@ if _system == 'FreeBSD':
             ('f_flag', c_ulong),
             ('f_frsize', c_ulong)]
 
-class fuse_file_info(Structure):
+class fuse_conn_info(Structure):
+    # compatible with FUSE 2.8; not compatible with FUSE 3.0!
     _fields_ = [
-        ('flags', c_int),
-        ('fh_old', c_ulong),
-        ('writepage', c_int),
-        ('direct_io', c_uint, 1),
-        ('keep_cache', c_uint, 1),
-        ('flush', c_uint, 1),
-        ('padding', c_uint, 29),
-        ('fh', c_uint64),
-        ('lock_owner', c_uint64)]
+        ('proto_major', c_uint),
+        ('proto_minor', c_uint),
+        ('async_read', c_uint),
+        ('max_write', c_uint),
+        ('max_readahead', c_uint),
+        ('capable', c_uint),
+        ('want', c_uint)]
+
+if _system == 'Windows' or _system.startswith('CYGWIN'):
+    class fuse_file_info(Structure):
+        _fields_ = [
+            ('flags', c_int),
+            ('fh_old', c_int),
+            ('writepage', c_int),
+            ('direct_io', c_uint, 1),
+            ('keep_cache', c_uint, 1),
+            ('flush', c_uint, 1),
+            ('padding', c_uint, 29),
+            ('fh', c_uint64),
+            ('lock_owner', c_uint64)]
+else:
+    class fuse_file_info(Structure):
+        _fields_ = [
+            ('flags', c_int),
+            ('fh_old', c_ulong),
+            ('writepage', c_int),
+            ('direct_io', c_uint, 1),
+            ('keep_cache', c_uint, 1),
+            ('flush', c_uint, 1),
+            ('padding', c_uint, 29),
+            ('fh', c_uint64),
+            ('lock_owner', c_uint64)]
 
 class fuse_context(Structure):
     _fields_ = [
@@ -414,7 +438,7 @@ class fuse_operations(Structure):
         ('fsyncdir', CFUNCTYPE(c_int, c_char_p, c_int,
                                POINTER(fuse_file_info))),
 
-        ('init', CFUNCTYPE(c_voidp, c_voidp)),
+        ('init', CFUNCTYPE(c_voidp, POINTER(fuse_conn_info))),
         ('destroy', CFUNCTYPE(c_voidp, c_voidp)),
         ('access', CFUNCTYPE(c_int, c_char_p, c_int)),
 
@@ -494,6 +518,13 @@ class FUSE(object):
         self.operations = operations
         self.raw_fi = raw_fi
         self.encoding = encoding
+
+        # WinFsp (and OSX) specific extensions:
+        #     FSP_FUSE_CAP_READDIR_PLUS     (1 << 21)   supports enhanced readdir
+        #     FSP_FUSE_CAP_CASE_INSENSITIVE (1 << 29)   is case insensitive (OSX)
+        self.conn_want = \
+            ((1 << 29) if kwargs.pop("case_insensitive", False) else 0) |\
+            ((1 << 21) if kwargs.pop("readdir_plus", False) else 0)
 
         args = ['fuse']
 
@@ -780,6 +811,8 @@ class FUSE(object):
                                            datasync, fip.contents.fh)
 
     def init(self, conn):
+        if self.conn_want:
+            conn.contents.want |= conn.contents.capable & self.conn_want
         return self.operations('init', '/')
 
     def destroy(self, private_data):

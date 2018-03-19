@@ -79,7 +79,7 @@ class Memory(LoggingMixIn, Operations):
         return self.data[path][offset:offset + size]
 
     def readdir(self, path, fh):
-        return ['.', '..'] + [x[1:] for x in self.files if x != '/']
+        return ['.', '..'] + [(x[1:], s, 0) for x, s in self.files.items() if x != '/']
 
     def readlink(self, path):
         return self.data[path]
@@ -138,4 +138,4 @@ if __name__ == '__main__':
         exit(1)
 
     logging.basicConfig(level=logging.DEBUG)
-    fuse = FUSE(Memory(), argv[1], foreground=True)
+    fuse = FUSE(Memory(), argv[1], foreground=True, readdir_plus=True)
