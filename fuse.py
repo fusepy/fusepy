@@ -49,18 +49,37 @@ except NameError:
     basestring = str
 
 log = logging.getLogger("fuse")
+_system = system()
+_machine = machine()
 
-class c_timespec(ctypes.Structure):
-    _fields_ = [('tv_sec', ctypes.c_long), ('tv_nsec', ctypes.c_long)]
+if _system == 'Windows':
+    # NOTE:
+    #
+    # sizeof(long)==4 on Windows 32-bit and 64-bit
+    # sizeof(long)==4 on Cygwin 32-bit and ==8 on Cygwin 64-bit
+    #
+    # We have to fix up c_long and c_ulong so that it matches the
+    # Cygwin (and UNIX) sizes when run on Windows.
+    import sys
+    if sys.maxsize > 0xffffffff:
+        c_win_long = ctypes.c_int64
+        c_win_ulong = ctypes.c_uint64
+    else:
+        c_win_long = ctypes.c_int32
+        c_win_ulong = ctypes.c_uint32
+
+if _system == 'Windows' or _system.startswith('CYGWIN'):
+    class c_timespec(ctypes.Structure):
+        _fields_ = [('tv_sec', c_win_long), ('tv_nsec', c_win_long)]
+else:
+    class c_timespec(ctypes.Structure):
+        _fields_ = [('tv_sec', ctypes.c_long), ('tv_nsec', ctypes.c_long)]
 
 class c_utimbuf(ctypes.Structure):
     _fields_ = [('actime', c_timespec), ('modtime', c_timespec)]
 
 class c_stat(ctypes.Structure):
     pass    # Platform dependent
-
-_system = system()
-_machine = machine()
 
 _libfuse_path = os.environ.get('FUSE_LIBRARY_PATH')
 if not _libfuse_path:
@@ -277,6 +296,35 @@ elif _system == 'Linux':
             ('st_mtimespec', c_timespec),
             ('st_ctimespec', c_timespec),
             ('st_ino', ctypes.c_ulonglong)]
+elif _system == 'Windows' or _system.startswith('CYGWIN'):
+    ENOTSUP = 129 if _system == 'Windows' else 134
+    c_dev_t = ctypes.c_uint
+    c_fsblkcnt_t = c_win_ulong
+    c_fsfilcnt_t = c_win_ulong
+    c_gid_t = ctypes.c_uint
+    c_mode_t = ctypes.c_uint
+    c_off_t = ctypes.c_longlong
+    c_pid_t = ctypes.c_int
+    c_uid_t = ctypes.c_uint
+    setxattr_t = ctypes.CFUNCTYPE(ctypes.c_int, ctypes.c_char_p, ctypes.c_char_p,
+        ctypes.POINTER(ctypes.c_byte), ctypes.c_size_t, ctypes.c_int)
+    getxattr_t = ctypes.CFUNCTYPE(ctypes.c_int, ctypes.c_char_p, ctypes.c_char_p,
+        ctypes.POINTER(ctypes.c_byte), ctypes.c_size_t)
+    c_stat._fields_ = [
+        ('st_dev', c_dev_t),
+        ('st_ino', ctypes.c_ulonglong),
+        ('st_mode', c_mode_t),
+        ('st_nlink', ctypes.c_ushort),
+        ('st_uid', c_uid_t),
+        ('st_gid', c_gid_t),
+        ('st_rdev', c_dev_t),
+        ('st_size', c_off_t),
+        ('st_atimespec', c_timespec),
+        ('st_mtimespec', c_timespec),
+        ('st_ctimespec', c_timespec),
+        ('st_blksize', ctypes.c_int),
+        ('st_blocks', ctypes.c_longlong),
+        ('st_birthtimespec', c_timespec)]
 else:
     raise NotImplementedError('%s is not supported.' % _system)
 
@@ -303,6 +351,20 @@ if _system == 'FreeBSD':
             ('f_bsize', ctypes.c_ulong),
             ('f_flag', ctypes.c_ulong),
             ('f_frsize', ctypes.c_ulong)]
+elif _system == 'Windows' or _system.startswith('CYGWIN'):
+    class c_statvfs(ctypes.Structure):
+        _fields_ = [
+            ('f_bsize', c_win_ulong),
+            ('f_frsize', c_win_ulong),
+            ('f_blocks', c_fsblkcnt_t),
+            ('f_bfree', c_fsblkcnt_t),
+            ('f_bavail', c_fsblkcnt_t),
+            ('f_files', c_fsfilcnt_t),
+            ('f_ffree', c_fsfilcnt_t),
+            ('f_favail', c_fsfilcnt_t),
+            ('f_fsid', c_win_ulong),
+            ('f_flag', c_win_ulong),
+            ('f_namemax', c_win_ulong)]
 else:
     class c_statvfs(ctypes.Structure):
         _fields_ = [
@@ -319,20 +381,32 @@ else:
             ('f_flag', ctypes.c_ulong),
             ('f_namemax', ctypes.c_ulong)]
 
-
-class fuse_file_info(ctypes.Structure):
-    _fields_ = [
-        ('flags', ctypes.c_int),
-        ('fh_old', ctypes.c_ulong),
-        ('writepage', ctypes.c_int),
-        ('direct_io', ctypes.c_uint, 1),
-        ('keep_cache', ctypes.c_uint, 1),
-        ('flush', ctypes.c_uint, 1),
-        ('nonseekable', ctypes.c_uint, 1),
-        ('flock_release', ctypes.c_uint, 1),
-        ('padding', ctypes.c_uint, 27),
-        ('fh', ctypes.c_uint64),
-        ('lock_owner', ctypes.c_uint64)]
+if _system == 'Windows' or _system.startswith('CYGWIN'):
+    class fuse_file_info(ctypes.Structure):
+        _fields_ = [
+            ('flags', ctypes.c_int),
+            ('fh_old', ctypes.c_int),
+            ('writepage', ctypes.c_int),
+            ('direct_io', ctypes.c_uint, 1),
+            ('keep_cache', ctypes.c_uint, 1),
+            ('flush', ctypes.c_uint, 1),
+            ('padding', ctypes.c_uint, 29),
+            ('fh', ctypes.c_uint64),
+            ('lock_owner', ctypes.c_uint64)]
+else:
+    class fuse_file_info(ctypes.Structure):
+        _fields_ = [
+            ('flags', ctypes.c_int),
+            ('fh_old', ctypes.c_ulong),
+            ('writepage', ctypes.c_int),
+            ('direct_io', ctypes.c_uint, 1),
+            ('keep_cache', ctypes.c_uint, 1),
+            ('flush', ctypes.c_uint, 1),
+            ('nonseekable', ctypes.c_uint, 1),
+            ('flock_release', ctypes.c_uint, 1),
+            ('padding', ctypes.c_uint, 27),
+            ('fh', ctypes.c_uint64),
+            ('lock_owner', ctypes.c_uint64)]
 
 class fuse_context(ctypes.Structure):
     _fields_ = [
@@ -477,7 +551,7 @@ class fuse_operations(ctypes.Structure):
 
 def time_of_timespec(ts, use_ns=False):
     if use_ns:
-        return ts.tv_sec * 1E9 + ts.tv_nsec
+        return ts.tv_sec * 10 ** 9 + ts.tv_nsec
     else:
         return ts.tv_sec + ts.tv_nsec / 1E9
 
@@ -489,9 +563,7 @@ def set_st_attrs(st, attrs, use_ns=False):
                 continue
 
             if use_ns:
-                sec, ns = divmod(val, 1E9)
-                timespec.tv_sec = int(sec)
-                timespec.tv_nsec = int(ns)
+                timespec.tv_sec, timespec.tv_nsec = divmod(int(val), 10 ** 9)
             else:
                 timespec.tv_sec = int(val)
                 timespec.tv_nsec = int((val - timespec.tv_sec) * 1E9)
