@@ -48,6 +48,7 @@ try:
 except NameError:
     basestring = str
 
+log = logging.getLogger("fuse")
 _system = system()
 _machine = machine()
 
@@ -578,6 +579,18 @@ def fuse_get_context():
     return ctx.uid, ctx.gid, ctx.pid
 
 
+def fuse_exit():
+    '''
+    This will shutdown the FUSE mount and cause the call to FUSE(...) to
+    return, similar to sending SIGINT to the process.
+
+    Flags the native FUSE session as terminated and will cause any running FUSE
+    event loops to exit on the next opportunity. (see fuse.c::fuse_exit)
+    '''
+    fuse_ptr = ctypes.c_void_p(_libfuse.fuse_get_context().contents.fuse)
+    _libfuse.fuse_exit(fuse_ptr)
+
+
 class FuseOSError(OSError):
     def __init__(self, errno):
         super(FuseOSError, self).__init__(errno, os.strerror(errno))
@@ -610,6 +623,7 @@ class FUSE(object):
         self.operations = operations
         self.raw_fi = raw_fi
         self.encoding = encoding
+        self.__critical_exception = None
 
         self.use_ns = getattr(operations, 'use_ns', False)
         if not self.use_ns:
@@ -672,6 +686,8 @@ class FUSE(object):
             pass
 
         del self.operations     # Invoke the destructor
+        if self.__critical_exception:
+            raise self.__critical_exception
         if err:
             raise RuntimeError(err)
 
@@ -689,11 +705,42 @@ class FUSE(object):
         'Decorator for the methods that follow'
 
         try:
-            return func(*args, **kwargs) or 0
-        except OSError as e:
-            return -(e.errno or errno.EFAULT)
-        except:
-            print_exc()
+            if func.__name__ == "init":
+                # init may not fail, as its return code is just stored as
+                # private_data field of struct fuse_context
+                return func(*args, **kwargs) or 0
+
+            else:
+                try:
+                    return func(*args, **kwargs) or 0
+
+                except OSError as e:
+                    if e.errno > 0:
+                        log.debug(
+                            "FUSE operation %s raised a %s, returning errno %s.",
+                            func.__name__, type(e), e.errno, exc_info=True)
+                        return -e.errno
+                    else:
+                        log.error(
+                            "FUSE operation %s raised an OSError with negative "
+                            "errno %s, returning errno.EINVAL.",
+                            func.__name__, e.errno, exc_info=True)
+                        return -errno.EINVAL
+
+                except Exception:
+                    log.error("Uncaught exception from FUSE operation %s, "
+                              "returning errno.EINVAL.",
+                              func.__name__, exc_info=True)
+                    return -errno.EINVAL
+
+        except BaseException as e:
+            self.__critical_exception = e
+            log.critical(
+                "Uncaught critical exception from FUSE operation %s, aborting.",
+                func.__name__, exc_info=True)
+            # the raised exception (even SystemExit) will be caught by FUSE
+            # potentially causing SIGSEGV, so tell system to stop/interrupt FUSE
+            fuse_exit()
             return -errno.EFAULT
 
     def _decode_optional_path(self, path):
