@@ -467,7 +467,7 @@ def setattr_mask_to_list(mask):
 class FUSELL(object):
     use_ns = False
 
-    def __init__(self, mountpoint):
+    def __init__(self, mountpoint, encoding='utf-8'):
         if not self.use_ns:
             warnings.warn(
                 'Time as floating point seconds for utimens is deprecated!\n'
@@ -477,6 +477,7 @@ class FUSELL(object):
                 DeprecationWarning)
 
         self.libfuse = LibFUSE()
+        self.encoding = encoding
 
         fuse_ops = fuse_lowlevel_ops()
 
@@ -486,11 +487,11 @@ class FUSELL(object):
                 setattr(fuse_ops, name, prototype(method))
 
         args = ['fuse']
-        argv = fuse_args(len(args), (ctypes.c_char_p * len(args))(*args), 0)
+        argv = fuse_args(len(args), (ctypes.c_char_p * len(args))(*[arg.encode(self.encoding) for arg in args]), 0)
 
         # TODO: handle initialization errors
 
-        chan = self.libfuse.fuse_mount(mountpoint, argv)
+        chan = self.libfuse.fuse_mount(mountpoint.encode(encoding), argv)
         assert chan
 
         session = self.libfuse.fuse_lowlevel_new(
@@ -520,7 +521,7 @@ class FUSELL(object):
 
         self.libfuse.fuse_session_remove_chan(chan)
         self.libfuse.fuse_session_destroy(session)
-        self.libfuse.fuse_unmount(mountpoint, chan)
+        self.libfuse.fuse_unmount(mountpoint.encode(encoding), chan)
 
     def reply_err(self, req, err):
         return self.libfuse.fuse_reply_err(req, err)
@@ -543,7 +544,7 @@ class FUSELL(object):
 
     def reply_readlink(self, req, link):
         return self.libfuse.fuse_reply_readlink(
-            req, link)
+            req, link.encode(self.encoding))
 
     def reply_open(self, req, d):
         fi = fuse_file_info(**d)
@@ -559,6 +560,7 @@ class FUSELL(object):
         bufsize = 0
         sized_entries = []
         for name, attr in entries:
+            name = name.encode(self.encoding)
             entsize = self.libfuse.fuse_add_direntry(req, None, 0, name, None, 0)
             sized_entries.append((name, attr, entsize))
             bufsize += entsize
@@ -584,6 +586,9 @@ class FUSELL(object):
     # If you override the following methods you should reply directly
     # with the self.libfuse.fuse_reply_* methods.
 
+    def fuse_lookup(self, req, parent, name):
+        self.lookup(req, parent, name.decode(self.encoding))
+
     def fuse_getattr(self, req, ino, fi):
         self.getattr(req, ino, struct_to_dict(fi))
 
@@ -592,6 +597,27 @@ class FUSELL(object):
         to_set_list = setattr_mask_to_list(to_set)
         fi_dict = struct_to_dict(fi)
         self.setattr(req, ino, attr_dict, to_set_list, fi_dict)
+
+    def fuse_mknod(self, req, parent, name, mode, rdev):
+        self.mknod(req, parent, name.decode(self.encoding), mode, rdev)
+
+    def fuse_mkdir(self, req, parent, name, mode):
+        self.mkdir(req, parent, name.decode(self.encoding), mode)
+
+    def fuse_unlink(self, req, parent, name):
+        self.unlink(req, parent, name.decode(self.encoding))
+
+    def fuse_rmdir(self, req, parent, name):
+        self.rmdir(req, parent, name.decode(self.encoding))
+
+    def fuse_symlink(self, req, link, parent, name):
+        self.symlink(req, link.decode(self.encoding), parent, name.decode(self.encoding))
+
+    def fuse_rename(self, req, parent, name, newparent, newname):
+        self.rename(req, parent, name.decode(self.encoding), newparent, newname.decode(self.encoding))
+
+    def fuse_link(self, req, ino, newparent, newname):
+        self.link(req, ino, newparent, newname.decode(self.encoding))
 
     def fuse_open(self, req, ino, fi):
         self.open(req, ino, struct_to_dict(fi))
@@ -625,6 +651,17 @@ class FUSELL(object):
     def fuse_fsyncdir(self, req, ino, datasync, fi):
         self.fsyncdir(req, ino, datasync, struct_to_dict(fi))
 
+    def fuse_setxattr(self, req, ino, name, value, size, flags):
+        self.setxattr(req, ino, name.decode(self.encoding), ctypes.string_at(value, size), flags)
+
+    def fuse_getxattr(self, req, ino, name, size):
+        self.getxattr(req, ino, name.decode(self.encoding), size)
+
+    def fuse_removexattr(self, req, ino, name):
+        self.removexattr(req, ino, name.decode(self.encoding))
+
+    def fuse_create(self, req, parent, name, mode, fi):
+        self.create(req, parent, name.decode(self.encoding), mode, struct_to_dict(fi))
 
     # Utility methods
 
@@ -847,3 +884,67 @@ class FUSELL(object):
             reply_err
         """
         self.reply_err(req, 0)
+
+    def statfs(self, req, ino):
+        """ Get file system statistics
+
+        Valid replies:
+            reply_statfs
+	        reply_err
+        """
+        self.reply_err(req, errno.ENOSYS)
+
+    def setxattr(self, req, ino, name, value, flags):
+        """ Set an extended attribute
+
+        Valid replies:
+	        reply_err
+        """
+        self.reply_err(req, errno.ENOSYS)
+
+    def getxattr(self, req, ino, name, size):
+        """ Set an extended attribute
+
+        Valid replies:
+	        reply_buf
+	        reply_data
+	        reply_xattr
+	        reply_err
+        """
+        self.reply_err(req, errno.ENOSYS)
+
+    def listxattr(self, req, ino, size):
+        """List extended attribute names
+
+        Valid replies:
+	        reply_buf
+	        reply_data
+	        reply_xattr
+	        reply_err
+        """
+        self.reply_err(req, errno.ENOSYS)
+
+    def removexattr(self, req, ino, name):
+        """Remove an extended attribute
+
+        Valid replies:
+	        reply_err
+        """
+        self.reply_err(req, errno.ENOSYS)
+
+    def access(self, req, ino, mask):
+        """Check file access permissions
+
+        Valid replies:
+	        reply_err
+        """
+        self.reply_err(req, errno.ENOSYS)
+
+    def create(self, req, parent, name, mode, fi):
+        """Create and open a file
+
+        Valid replies:
+            reply_create
+	        reply_err
+        """
+        self.reply_err(req, errno.ENOSYS)

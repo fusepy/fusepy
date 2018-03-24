@@ -19,7 +19,7 @@ class Memory(FUSELL):
     def init(self, userdata, conn):
         self.ino = 1
         self.attr = defaultdict(dict)
-        self.data = defaultdict(str)
+        self.data = defaultdict(bytes)
         self.parent = {}
         self.children = defaultdict(dict)
 
