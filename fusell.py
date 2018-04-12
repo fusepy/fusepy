@@ -467,7 +467,7 @@ def setattr_mask_to_list(mask):
 class FUSELL(object):
     use_ns = False
 
-    def __init__(self, mountpoint, encoding='utf-8'):
+    def __init__(self, mountpoint, encoding='utf-8', userdata=None):
         if not self.use_ns:
             warnings.warn(
                 'Time as floating point seconds for utimens is deprecated!\n'
@@ -478,6 +478,7 @@ class FUSELL(object):
 
         self.libfuse = LibFUSE()
         self.encoding = encoding
+        self.__userdata = userdata
 
         fuse_ops = fuse_lowlevel_ops()
 
@@ -585,6 +586,12 @@ class FUSELL(object):
 
     # If you override the following methods you should reply directly
     # with the self.libfuse.fuse_reply_* methods.
+
+    def fuse_init(self, userdata, conn):
+        self.init(self.__userdata, conn)
+
+    def fuse_destroy(self, userdata):
+        self.destroy(self.__userdata)
 
     def fuse_lookup(self, req, parent, name):
         self.lookup(req, parent, name.decode(self.encoding))
