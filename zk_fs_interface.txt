@@ -1,0 +1,5 @@
+The goal of this project is to implement a filesystem for Apache Zookeeper, a widely known centralized service for distributed systems. The filesystem will be implemented via FUSE, an interface for userspace programs to export a filesystem to the LINUX kernel.
+The whole implementation will be coded in Python.
+To use Zookeeper in a safe manner we will additionally be using the Python library Kazoo. Kazoo is used to handle all the cases in which Zookeeper fails to work properly due to the Python C binding present in it's implementation, Kazoo also provides a new asynchronous API which is consistent when using threads or gevent greenlets.
+To implement FUSE we will be using fusepy that is a Python module that provides a simple interface to FUSE.
+The implementation will be based on the fusepy example: https://github.com/terencehonles/fusepy/lob/master/examples/loopback.py using the methods in the class Loopback as a template but using Kazoo to implement them.
