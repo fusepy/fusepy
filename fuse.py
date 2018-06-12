@@ -89,6 +89,25 @@ if not _libfuse_path:
 
         _libfuse_path = (find_library('fuse4x') or find_library('osxfuse') or
                          find_library('fuse'))
+    elif _system == 'Windows':
+        try:
+            import _winreg as reg
+        except ImportError:
+            import winreg as reg
+        def Reg32GetValue(rootkey, keyname, valname):
+            key, val = None, None
+            try:
+                key = reg.OpenKey(rootkey, keyname, 0, reg.KEY_READ | reg.KEY_WOW64_32KEY)
+                val = str(reg.QueryValueEx(key, valname)[0])
+            except WindowsError:
+                pass
+            finally:
+                if key is not None:
+                    reg.CloseKey(key)
+            return val
+        _libfuse_path = Reg32GetValue(reg.HKEY_LOCAL_MACHINE, r"SOFTWARE\WinFsp", r"InstallDir")
+        if _libfuse_path:
+            _libfuse_path += r"bin\winfsp-%s.dll" % ("x64" if sys.maxsize > 0xffffffff else "x86")
     else:
         _libfuse_path = find_library('fuse')
 
