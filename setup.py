@@ -19,7 +19,7 @@ setup(
     maintainer_email = 'terence@honles.com',
     license = 'ISC',
     py_modules=['fuse'],
-    url = 'http://github.com/terencehonles/fusepy',
+    url = 'http://github.com/fusepy/fusepy',
 
     classifiers = [
         'Intended Audience :: Developers',

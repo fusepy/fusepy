@@ -40,11 +40,11 @@ fusepy requires FUSE 2.6 (or later) and runs on:
 .. _`Google Code`: http://code.google.com/p/fusepy/
 
 .. _officially hosted on GitHub: source_
-.. _download: https://github.com/terencehonles/fusepy/zipball/master
-.. _source: http://github.com/terencehonles/fusepy
+.. _download: https://github.com/fusepy/fusepy/zipball/master
+.. _source: http://github.com/fusepy/fusepy
 
 .. examples
-.. _memory: http://github.com/terencehonles/fusepy/blob/master/examples/memory.py
-.. _loopback: http://github.com/terencehonles/fusepy/blob/master/examples/loopback.py
-.. _context: http://github.com/terencehonles/fusepy/blob/master/examples/context.py
-.. _sftp: http://github.com/terencehonles/fusepy/blob/master/examples/sftp.py
+.. _memory: http://github.com/fusepy/fusepy/blob/master/examples/memory.py
+.. _loopback: http://github.com/fusepy/fusepy/blob/master/examples/loopback.py
+.. _context: http://github.com/fusepy/fusepy/blob/master/examples/context.py
+.. _sftp: http://github.com/fusepy/fusepy/blob/master/examples/sftp.py
