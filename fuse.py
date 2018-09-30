@@ -17,6 +17,7 @@ from __future__ import print_function, absolute_import, division
 
 import ctypes
 import errno
+import inspect
 import logging
 import os
 import warnings
@@ -438,6 +439,18 @@ class fuse_context(ctypes.Structure):
 _libfuse.fuse_get_context.restype = ctypes.POINTER(fuse_context)
 
 
+class fuse_conn_info(ctypes.Structure):
+    _fields_ = [
+        ('proto_major', ctypes.c_uint),
+        ('proto_minor', ctypes.c_uint),
+        ('async_read', ctypes.c_uint),
+        ('max_write', ctypes.c_uint),
+        ('max_readahead', ctypes.c_uint),
+        ('capable', ctypes.c_uint),
+        ('want', ctypes.c_uint),
+        ('reserved', ctypes.c_uint, 25)]
+
+
 class fuse_operations(ctypes.Structure):
     _fields_ = [
         ('getattr', ctypes.CFUNCTYPE(
@@ -528,7 +541,8 @@ class fuse_operations(ctypes.Structure):
             ctypes.c_int, ctypes.c_char_p, ctypes.c_int,
             ctypes.POINTER(fuse_file_info))),
 
-        ('init', ctypes.CFUNCTYPE(ctypes.c_voidp, ctypes.c_voidp)),
+        ('init', ctypes.CFUNCTYPE(
+            ctypes.c_voidp, ctypes.POINTER(fuse_file_info))),
         ('destroy', ctypes.CFUNCTYPE(ctypes.c_voidp, ctypes.c_voidp)),
 
         ('access', ctypes.CFUNCTYPE(
@@ -986,7 +1000,14 @@ class FUSE(object):
                                            datasync, fip.contents.fh)
 
     def init(self, conn):
-        return self.operations('init', '/')
+        arg_spec = getattr(inspect, 'getfullargspec', inspect.getargspec)(
+            self.operations.init)
+
+        if len(arg_spec.args) > 2 or arg_spec.varargs is not None:
+            return self.operations('init', '/', conn)
+        else:
+            return self.operations('init', '/')
+
 
     def destroy(self, private_data):
         return self.operations('destroy', '/')
