@@ -33,6 +33,7 @@ fusepy requires FUSE 2.6 (or later) and runs on:
 - Linux (i386, x86_64, PPC, arm64, MIPS)
 - Mac OS X (Intel, PowerPC)
 - FreeBSD (i386, amd64)
+- OpenBSD (all archs)
 
 
 .. _FUSE: http://fuse.sourceforge.net/
