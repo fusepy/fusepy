@@ -727,7 +727,6 @@ class FUSE(object):
         self.operations = operations
         self.raw_fi = raw_fi
         self.encoding = encoding
-        self.__critical_exception = None
 
         self.use_ns = getattr(operations, 'use_ns', False)
         if not self.use_ns:
@@ -790,8 +789,6 @@ class FUSE(object):
             pass
 
         del self.operations     # Invoke the destructor
-        if self.__critical_exception:
-            raise self.__critical_exception
         if err:
             raise RuntimeError(err)
 
@@ -837,7 +834,6 @@ class FUSE(object):
                     return -errno.EINVAL
 
         except BaseException as e:
-            self.__critical_exception = e
             log.critical(
                 "Uncaught critical exception from FUSE operation %s, aborting.",
                 func.__name__, exc_info=True)
