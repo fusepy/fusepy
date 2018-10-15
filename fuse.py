@@ -827,16 +827,16 @@ class FUSE(object):
                             func.__name__, e.errno, exc_info=True)
                         return -errno.EINVAL
 
-                except Exception:
+                except Exception as e:
                     log.error("Uncaught exception from FUSE operation %s, "
-                              "returning errno.EINVAL.",
-                              func.__name__, exc_info=True)
+                              "returning errno.EINVAL: %s",
+                              func.__name__, e, exc_info=True)
                     return -errno.EINVAL
 
         except BaseException as e:
             log.critical(
-                "Uncaught critical exception from FUSE operation %s, aborting.",
-                func.__name__, exc_info=True)
+                "Uncaught critical exception from FUSE operation %s, aborting: %s.",
+                func.__name__, e, exc_info=True)
             # the raised exception (even SystemExit) will be caught by FUSE
             # potentially causing SIGSEGV, so tell system to stop/interrupt FUSE
             fuse_exit()
