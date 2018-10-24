@@ -815,14 +815,14 @@ class FUSE(object):
                     return func(*args, **kwargs) or 0
 
                 except OSError as e:
-                    if e.errno > 0:
+                    if e.errno is not None and e.errno > 0:
                         log.debug(
                             "FUSE operation %s raised a %s, returning errno %s.",
                             func.__name__, type(e), e.errno, exc_info=True)
                         return -e.errno
                     else:
                         log.error(
-                            "FUSE operation %s raised an OSError with negative "
+                            "FUSE operation %s raised an OSError with an invalid "
                             "errno %s, returning errno.EINVAL.",
                             func.__name__, e.errno, exc_info=True)
                         return -errno.EINVAL
