@@ -4,7 +4,7 @@ from __future__ import print_function, absolute_import, division
 import logging
 
 from collections import defaultdict
-from errno import ENOENT
+from errno import ENOENT, ENODATA
 from stat import S_IFDIR, S_IFLNK, S_IFREG
 from time import time
 
@@ -12,6 +12,8 @@ from fuse import FUSE, FuseOSError, Operations, LoggingMixIn
 
 if not hasattr(__builtins__, 'bytes'):
     bytes = str
+
+ENOATTR = ENODATA  # ENOATTR is defined to be a (mostly) synonym for ENODATA
 
 
 class Memory(LoggingMixIn, Operations):
@@ -62,7 +64,7 @@ class Memory(LoggingMixIn, Operations):
         try:
             return attrs[name]
         except KeyError:
-            return ''       # Should return ENOATTR
+            raise FuseOSError(ENOATTR)
 
     def listxattr(self, path):
         attrs = self.files[path].get('attrs', {})
@@ -98,10 +100,10 @@ class Memory(LoggingMixIn, Operations):
         try:
             del attrs[name]
         except KeyError:
-            pass        # Should return ENOATTR
+            raise FuseOSError(ENOATTR)
 
     def rename(self, old, new):
-        self.data[new] = self.data.pop(old)
+        self.data[new] = self.data.pop(old, bytes())
         self.files[new] = self.files.pop(old)
 
     def rmdir(self, path):
@@ -132,7 +134,7 @@ class Memory(LoggingMixIn, Operations):
         self.files[path]['st_size'] = length
 
     def unlink(self, path):
-        self.data.pop(path)
+        self.data.pop(path, None)
         self.files.pop(path)
 
     def utimens(self, path, times=None):
