@@ -101,7 +101,7 @@ class Memory(LoggingMixIn, Operations):
             pass        # Should return ENOATTR
 
     def rename(self, old, new):
-        self.data[new] = self.data.pop(old)
+        self.data[new] = self.data.pop(old, bytes())
         self.files[new] = self.files.pop(old)
 
     def rmdir(self, path):
@@ -132,7 +132,7 @@ class Memory(LoggingMixIn, Operations):
         self.files[path]['st_size'] = length
 
     def unlink(self, path):
-        self.data.pop(path)
+        self.data.pop(path, None)
         self.files.pop(path)
 
     def utimens(self, path, times=None):
