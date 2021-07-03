@@ -753,7 +753,7 @@ class FUSE(object):
                     return -errno.EINVAL
 
         except BaseException as e:
-            self.__critical_exception = e
+            ## self.__critical_exception = e
             log.critical(
                 "Uncaught critical exception from FUSE operation %s, aborting.",
                 func.__name__, exc_info=True)
