@@ -87,6 +87,8 @@ class LibFUSE(ctypes.CDLL):
             ctypes.c_void_p, ctypes.c_char_p, ctypes.c_size_t,
             ctypes.c_char_p, c_stat_p, c_off_t)
 
+        self.fuse_pollhandle_destroy.argtypes = (fuse_pollhandle_p,)
+
 class fuse_args(ctypes.Structure):
     _fields_ = [
         ('argc', ctypes.c_int),
@@ -270,12 +272,19 @@ class fuse_forget_data(ctypes.Structure):
         ('nlookup', ctypes.c_uint64),
     ]
 
+class fuse_pollhandle(ctypes.Structure):
+    _fields_ = [
+        ('kh', ctypes.c_uint64),
+        ('se', ctypes.c_void_p),
+    ]
+
 fuse_ino_t = ctypes.c_ulong
 fuse_req_t = ctypes.c_void_p
 c_stat_p = ctypes.POINTER(c_stat)
 c_bytes_p = ctypes.POINTER(ctypes.c_byte)
 fuse_file_info_p = ctypes.POINTER(fuse_file_info)
 fuse_forget_data_p = ctypes.POINTER(fuse_forget_data)
+fuse_pollhandle_p = ctypes.POINTER(fuse_pollhandle)
 
 FUSE_SET_ATTR = ('st_mode', 'st_uid', 'st_gid', 'st_size', 'st_atime', 'st_mtime')
 
@@ -398,7 +407,7 @@ class fuse_lowlevel_ops(ctypes.Structure):
             None, fuse_req_t, fuse_ino_t, ctypes.c_int, ctypes.c_void_p, fuse_file_info_p, ctypes.c_uint, ctypes.c_void_p, ctypes.c_size_t, ctypes.c_size_t)),
 
         ('poll', ctypes.CFUNCTYPE(
-            None, fuse_req_t, fuse_ino_t, fuse_file_info_p, ctypes.c_void_p)),
+            None, fuse_req_t, fuse_ino_t, fuse_file_info_p, fuse_pollhandle_p)),
 
         ('write_buf', ctypes.CFUNCTYPE(
             None, fuse_req_t, fuse_ino_t, ctypes.c_void_p, c_off_t, fuse_file_info_p)),

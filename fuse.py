@@ -27,6 +27,7 @@ from signal import signal, SIGINT, SIG_DFL
 from stat import S_IFDIR
 from traceback import print_exc
 
+from fusell import fuse_pollhandle_p
 
 try:
     from functools import partial
@@ -565,6 +566,10 @@ class fuse_operations(ctypes.Structure):
         ('ioctl', ctypes.CFUNCTYPE(
             ctypes.c_int, ctypes.c_char_p, ctypes.c_uint, ctypes.c_void_p,
             ctypes.POINTER(fuse_file_info), ctypes.c_uint, ctypes.c_void_p)),
+
+        ('poll', ctypes.CFUNCTYPE(
+            ctypes.c_int, ctypes.c_char_p, ctypes.POINTER(fuse_file_info), fuse_pollhandle_p, ctypes.POINTER(ctypes.c_uint)
+        ))
     ]
 
 
@@ -1060,6 +1065,15 @@ class FUSE(object):
         return self.operations('ioctl', path.decode(self.encoding),
             cmd, arg, fh, flags, data)
 
+    def poll(self, path, fip, ph, reventsp):
+        if self.raw_fi:
+            fh = fip.contents
+        else:
+            fh = fip.contents.fh
+
+        return self.operations('poll', path.decode(self.encoding), fh, ph, reventsp)
+
+
 class Operations(object):
     '''
     This class should be subclassed and passed as an argument to FUSE on
@@ -1175,6 +1189,9 @@ class Operations(object):
         'Returns a numerical file handle.'
 
         return 0
+
+    def poll(self, path, fh, ph, reventsp):
+        raise FuseOSError(errno.ENOSYS)
 
     def read(self, path, size, offset, fh):
         'Returns a string containing the data requested.'
